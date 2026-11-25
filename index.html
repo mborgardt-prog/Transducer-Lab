@@ -353,9 +353,10 @@
 
         <div class="field full">
           <label>Alignment Type</label>
-          <select id="boxType" onchange="update()">
+          <select id="boxType" onchange="onBoxTypeChange()">
             <option value="sealed">Sealed (Acoustic Suspension)</option>
             <option value="ported" selected>Ported (Bass Reflex)</option>
+            <option value="bp4">4th-Order Bandpass</option>
           </select>
         </div>
 
@@ -378,7 +379,11 @@
           <label><span id="lbl-vb">Net Volume Vb (L)</span></label>
           <input type="number" id="vb" value="42" step="0.5" oninput="update()" />
         </div>
-        <div class="field">
+        <div class="field" id="frontChamberField" style="display:none;">
+          <label><span id="lbl-vf">Front Chamber Vf (L)</span></label>
+          <input type="number" id="vf" value="28" step="0.5" oninput="update()" />
+        </div>
+        <div class="field" id="qlField">
           <label>Stuffing / Damping (Ql)</label>
           <input type="number" id="ql" value="7" step="0.5" oninput="update()" />
         </div>
@@ -486,7 +491,7 @@
         <div class="val" id="outAlpha">—</div>
       </div>
       <div class="card">
-        <div class="title">System Qtc (Sealed)</div>
+        <div class="title">System Qtc (Sealed/Rear)</div>
         <div class="val" id="outQtc">—</div>
       </div>
     </div>
@@ -507,20 +512,66 @@
 
   // Conversion factors: multiply Metric value by factor to get Standard (Imperial) value
   const CONV = {
-    mms:        { factor: 0.03527396, mDec: 1, iDec: 2, mLabel: "Mms (grams)",         iLabel: "Mms (oz)" },
-    dd:         { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Piston Dia Dd (cm)",  iLabel: "Piston Dia Dd (in)" },
-    sd:         { factor: 0.15500031, mDec: 1, iDec: 2, mLabel: "Sd (cm²)",            iLabel: "Sd (in²)" },
-    vas:        { factor: 0.03531467, mDec: 2, iDec: 3, mLabel: "Vas (Liters)",        iLabel: "Vas (ft³)" },
-    xmax:       { factor: 0.03937008, mDec: 1, iDec: 2, mLabel: "Xmax (mm)",           iLabel: "Xmax (in)" },
-    boxW:       { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Int. W (cm)",         iLabel: "Int. W (in)" },
-    boxH:       { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Int. H (cm)",         iLabel: "Int. H (in)" },
-    boxD:       { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Int. D (cm)",         iLabel: "Int. D (in)" },
-    vb:         { factor: 0.03531467, mDec: 1, iDec: 2, mLabel: "Net Volume Vb (L)",   iLabel: "Net Volume Vb (ft³)" },
-    portDia:    { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Port Diameter (cm)",  iLabel: "Port Diameter (in)" },
-    portWidth:  { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Port Width (cm)",     iLabel: "Port Width (in)" },
-    portHeight: { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Port Height (cm)",    iLabel: "Port Height (in)" }
+    mms:        { factor: 0.03527396, mDec: 1, iDec: 2, mStep: 1,   iStep: 0.05, mLabel: "Mms (grams)",         iLabel: "Mms (oz)" },
+    dd:         { factor: 0.39370079, mDec: 1, iDec: 2, mStep: 0.1, iStep: 0.05, mLabel: "Piston Dia Dd (cm)",  iLabel: "Piston Dia Dd (in)" },
+    sd:         { factor: 0.15500031, mDec: 1, iDec: 2, mStep: 0.5, iStep: 0.1,  mLabel: "Sd (cm²)",            iLabel: "Sd (in²)" },
+    vas:        { factor: 0.03531467, mDec: 2, iDec: 3, mStep: 0.5, iStep: 0.05, mLabel: "Vas (Liters)",        iLabel: "Vas (ft³)" },
+    xmax:       { factor: 0.03937008, mDec: 1, iDec: 2, mStep: 0.5, iStep: 0.02, mLabel: "Xmax (mm)",           iLabel: "Xmax (in)" },
+    boxW:       { factor: 0.39370079, mDec: 1, iDec: 2, mStep: 0.5, iStep: 0.1,  mLabel: "Int. W (cm)",         iLabel: "Int. W (in)" },
+    boxH:       { factor: 0.39370079, mDec: 1, iDec: 2, mStep: 0.5, iStep: 0.1,  mLabel: "Int. H (cm)",         iLabel: "Int. H (in)" },
+    boxD:       { factor: 0.39370079, mDec: 1, iDec: 2, mStep: 0.5, iStep: 0.1,  mLabel: "Int. D (cm)",         iLabel: "Int. D (in)" },
+    vb:         { factor: 0.03531467, mDec: 1, iDec: 2, mStep: 0.5, iStep: 0.05, mLabel: "Net Volume Vb (L)",   iLabel: "Net Volume Vb (ft³)" },
+    vf:         { factor: 0.03531467, mDec: 1, iDec: 2, mStep: 0.5, iStep: 0.05, mLabel: "Front Chamber Vf (L)",iLabel: "Front Chamber Vf (ft³)" },
+    portDia:    { factor: 0.39370079, mDec: 1, iDec: 2, mStep: 0.5, iStep: 0.05, mLabel: "Port Diameter (cm)",  iLabel: "Port Diameter (in)" },
+    portWidth:  { factor: 0.39370079, mDec: 1, iDec: 2, mStep: 0.2, iStep: 0.05, mLabel: "Port Width (cm)",     iLabel: "Port Width (in)" },
+    portHeight: { factor: 0.39370079, mDec: 1, iDec: 2, mStep: 0.5, iStep: 0.1,  mLabel: "Port Height (cm)",    iLabel: "Port Height (in)" }
   };
 
   const fields = [
     "driverName", "fs", "re", "qes", "qms", "qts",
     "mms", "dd", "sd", "vas", "bl", "xmax",
+    "boxType", "boxW", "boxH", "boxD", "vb", "vf", "ql",
+    "portShape", "numPorts", "portWidth", "portHeight", "portDia",
+    "fb", "endCorr", "power", "cabinGain"
+  ];
+
+  // Read any field normalized to Metric (g, cm, cm², L, mm)
+  function getMetric(id) {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    const raw = parseFloat(el.value);
+    if (Number.isNaN(raw)) return 0;
+    if (currentUnits === "imperial" && CONV[id]) {
+      return raw / CONV[id].factor;
+    }
+    return raw;
+  }
+
+  // Write a Metric value into an input field formatted for the active unit system
+  function setMetric(id, metricVal, markDerived = false) {
+    const el = document.getElementById(id);
+    if (!el || !Number.isFinite(metricVal)) return;
+    const cfg = CONV[id];
+    if (cfg) {
+      const displayVal = currentUnits === "imperial" ? metricVal * cfg.factor : metricVal;
+      const dec = currentUnits === "imperial" ? cfg.iDec : cfg.mDec;
+      el.value = displayVal.toFixed(dec);
+    } else {
+      el.value = Number(metricVal.toPrecision(4));
+    }
+    if (markDerived) {
+      el.classList.add("derived");
+      const tag = document.getElementById("tag-" + id);
+      if (tag) tag.textContent = "AUTO";
+    }
+  }
+
+  // Universal Unit Toggle across Header, Enclosure Geometry, and Port Geometry
+  function setUnits(targetUnits) {
+    if (targetUnits !== "metric" && targetUnits !== "imperial") return;
+    if (targetUnits === currentUnits) return;
+
+    const toImperial = targetUnits === "imperial";
+
+    // Sync active highlight on ALL unit toggle buttons across the page
+    document.querySelectorAll
