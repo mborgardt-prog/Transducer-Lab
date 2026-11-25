@@ -1,2096 +1,526 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TransducerLab — Speaker Database &amp; Acoustic Enclosure Modeler</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
-          },
-          colors: {
-            slate: {
-              950: '#090d16',
-              900: '#0f1623',
-              850: '#141d2e',
-              800: '#1b263b',
-            }
-          }
-        }
-      }
-    };
-  </script>
+  <title>Transducer Lab — Enclosure & Acoustic Modeling</title>
   <style>
-    body { font-family: 'Inter', system-ui, sans-serif; background-color: #090d16; color: #e2e8f0; }
-    .tabular-nums { font-variant-numeric: tabular-nums; }
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-track { background: #0f1623; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #475569; }
-    input[type="range"] { accent-color: #38bdf8; }
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --panel-header: #1e222b;
+      --border: #2a2f3a;
+      --text: #e6e8ec;
+      --muted: #9aa0ac;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --compare: #f59e0b;
+      --auto-badge: #10b981;
+      --warn: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: 0.4px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .unit-switch {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .unit-switch button {
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      padding: 6px 11px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .unit-switch.compact button {
+      padding: 3px 8px;
+      font-size: 0.74rem;
+    }
+    .unit-switch button.active {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    button {
+      background: var(--panel-header);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 7px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary:hover { background: var(--accent-hover); }
+    .workspace {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      flex: 1;
+      overflow: hidden;
+    }
+    @media (max-width: 850px) {
+      .workspace { grid-template-columns: 1fr; overflow-y: auto; }
+    }
+    .sidebar {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    details {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #13161c;
+    }
+    summary {
+      background: var(--panel-header);
+      padding: 10px 12px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      user-select: none;
+      border-radius: 6px;
+    }
+    details[open] summary {
+      border-bottom: 1px solid var(--border);
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    .section-body {
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .field.full { grid-column: span 2; }
+    .dim-row {
+      grid-column: span 2;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+    .auto-bar {
+      grid-column: span 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1a1f29;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+    .auto-bar label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .auto-bar input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+    label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .tag-auto {
+      color: var(--auto-badge);
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    input, select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 0.88rem;
+      width: 100%;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    input.derived {
+      border-color: rgba(16, 185, 129, 0.45);
+    }
+    input[readonly] {
+      background: #11141a;
+      font-weight: 600;
+      color: #dbeafe;
+    }
+    input.warn-val {
+      border-color: var(--warn);
+      color: #fca5a5;
+    }
+    .main-view {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+    .readouts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .card .title { font-size: 0.75rem; color: var(--muted); }
+    .card .val { font-size: 1.15rem; font-weight: 700; margin-top: 2px; }
+    .chart-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      flex: 1;
+      min-height: 360px;
+      display: flex;
+      flex-direction: column;
+    }
+    .legend {
+      display: flex;
+      gap: 16px;
+      font-size: 0.8rem;
+      margin-bottom: 8px;
+      color: var(--muted);
+    }
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      flex: 1;
+    }
   </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased selection:bg-sky-500/30 selection:text-sky-200">
+<body>
 
-  <!-- Top Navigation Bar -->
-  <header class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
-    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-3 min-w-0">
-        <div class="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
-          <i data-lucide="speaker" class="w-4 h-4"></i>
-        </div>
-        <div class="min-w-0">
-          <div class="flex items-center gap-2">
-            <h1 class="text-sm sm:text-base font-semibold tracking-tight text-white truncate">TransducerLab</h1>
-            <span class="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LOCAL-ONLY</span>
-          </div>
-          <p class="hidden sm:block text-[11px] text-slate-400 truncate">Thiele-Small Speaker Database &amp; Acoustic Enclosure Modeler</p>
-        </div>
-      </div>
-
-      <!-- View Switcher -->
-      <nav class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 shrink-0">
-        <button id="tab-database" type="button" class="px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition flex items-center gap-1.5 bg-sky-500/15 text-sky-300 border border-sky-500/30">
-          <i data-lucide="database" class="w-3.5 h-3.5"></i>
-          <span>Database</span>
-          <span id="db-count-badge" class="ml-0.5 px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 text-[11px] font-mono tabular-nums">4</span>
-        </button>
-        <button id="tab-modeler" type="button" class="px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200 border border-transparent">
-          <i data-lucide="activity" class="w-3.5 h-3.5"></i>
-          <span>Enclosure Modeler</span>
-        </button>
-      </nav>
+<header>
+  <h1>Transducer Lab</h1>
+  <div class="toolbar">
+    <div class="unit-switch" role="group" aria-label="Unit System">
+      <button type="button" data-unit-btn="metric" class="active" onclick="setUnits('metric')">Metric (L / cm / g)</button>
+      <button type="button" data-unit-btn="imperial" onclick="setUnits('imperial')">Standard (ft³ / in / oz)</button>
     </div>
-  </header>
+    <button onclick="pinBaseline()">Pin Baseline (Compare)</button>
+    <button onclick="clearBaseline()">Clear Baseline</button>
+    <button class="primary" onclick="exportSnapshot()">Export Snapshot (.json)</button>
+    <button onclick="document.getElementById('importFile').click()">Import Snapshot</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importSnapshot(event)" />
+  </div>
+</header>
 
-  <!-- Main Content -->
-  <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-5">
-
-    <!-- ==================== VIEW 1: SPEAKER DATABASE ==================== -->
-    <section id="view-database" class="space-y-5">
-      <!-- Toolbar -->
-      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-1">
-          <div class="relative flex-1 max-w-md">
-            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-            <input id="db-search" type="text" placeholder="Search brand, model, diameter, or notes..." class="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500" />
-          </div>
-          <div class="flex items-center gap-2">
-            <label for="db-sort" class="text-xs text-slate-400 shrink-0">Sort:</label>
-            <select id="db-sort" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-sky-500">
-              <option value="name">Brand / Model</option>
-              <option value="fs">Fs (Low → High)</option>
-              <option value="qts">Qts (Low → High)</option>
-              <option value="vas">Vas (Low → High)</option>
-              <option value="ebp">EBP (High → Low)</option>
-              <option value="sens">Sensitivity (High → Low)</option>
-              <option value="xmax">Xmax (High → Low)</option>
-            </select>
-          </div>
+<div class="workspace">
+  <aside class="sidebar">
+    <!-- 1. SPEAKER SECTION -->
+    <details open>
+      <summary>1. Speaker (Thiele/Small)</summary>
+      <div class="section-body">
+        <div class="auto-bar">
+          <label><input type="checkbox" id="autoCalc" checked onchange="runAutoCalc()" /> Auto-solve T/S</label>
+          <button type="button" style="padding:3px 8px; font-size:0.75rem;" onclick="forceSolveAll()">Solve Missing</button>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-          <button id="btn-add-driver" type="button" class="px-3.5 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs sm:text-sm transition flex items-center gap-1.5">
-            <i data-lucide="plus" class="w-4 h-4"></i>
-            <span>Add Driver</span>
-          </button>
-          <label class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-medium transition cursor-pointer flex items-center gap-1.5 border border-slate-700">
-            <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-            <span>Import JSON</span>
-            <input id="file-import-json" type="file" accept=".json,application/json" class="hidden" />
-          </label>
-          <button id="btn-export-json" type="button" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-medium transition flex items-center gap-1.5 border border-slate-700">
-            <i data-lucide="download" class="w-3.5 h-3.5"></i>
-            <span>Export JSON</span>
-          </button>
-          <button id="btn-export-csv" type="button" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-medium transition flex items-center gap-1.5 border border-slate-700">
-            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
-            <span>CSV</span>
-          </button>
-          <button id="btn-reset-db" type="button" class="px-3 py-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-rose-300 text-xs font-medium transition border border-slate-800" title="Restore factory sample drivers">
-            Reset
-          </button>
+        <div class="field full">
+          <label>Driver Model / Project Name</label>
+          <input type="text" id="driverName" value="Custom 10-inch Sub" oninput="onParamInput('driverName')" />
         </div>
-      </div>
 
-      <!-- Category Filter Pills -->
-      <div id="db-category-pills" class="flex flex-wrap items-center gap-2">
-        <button data-cat="All" class="cat-pill px-3 py-1 rounded-full text-xs font-medium bg-sky-500/20 text-sky-300 border border-sky-500/40">All Drivers</button>
-        <button data-cat="Subwoofer" class="cat-pill px-3 py-1 rounded-full text-xs font-medium bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200">Subwoofer</button>
-        <button data-cat="Woofer" class="cat-pill px-3 py-1 rounded-full text-xs font-medium bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200">Woofer</button>
-        <button data-cat="Midwoofer" class="cat-pill px-3 py-1 rounded-full text-xs font-medium bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200">Midwoofer</button>
-        <button data-cat="Pro Audio" class="cat-pill px-3 py-1 rounded-full text-xs font-medium bg-slate-900 text-slate-400 border border-slate-800 hover:text-slate-200">Pro Audio</button>
-      </div>
+        <div class="field">
+          <label>Fs (Hz)</label>
+          <input type="number" id="fs" value="32" step="0.5" oninput="onParamInput('fs')" />
+        </div>
+        <div class="field">
+          <label>Re (Ohms)</label>
+          <input type="number" id="re" value="3.6" step="0.1" oninput="onParamInput('re')" />
+        </div>
 
-      <!-- Driver Cards Grid -->
-      <div id="driver-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
-    </section>
+        <div class="field">
+          <label>Qes <span class="tag-auto" id="tag-qes"></span></label>
+          <input type="number" id="qes" value="0.50" step="0.01" oninput="onParamInput('qes')" />
+        </div>
+        <div class="field">
+          <label>Qms <span class="tag-auto" id="tag-qms"></span></label>
+          <input type="number" id="qms" value="4.50" step="0.1" oninput="onParamInput('qms')" />
+        </div>
 
-    <!-- ==================== VIEW 2: ENCLOSURE MODELER ==================== -->
-    <section id="view-modeler" class="hidden space-y-5">
+        <div class="field">
+          <label>Qts <span class="tag-auto" id="tag-qts"></span></label>
+          <input type="number" id="qts" value="0.45" step="0.01" oninput="onParamInput('qts')" />
+        </div>
+        <div class="field">
+          <label><span id="lbl-mms">Mms (grams)</span></label>
+          <input type="number" id="mms" value="110" step="1" oninput="onParamInput('mms')" />
+        </div>
 
-      <!-- Top KPI Strip -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
-          <div class="text-[11px] uppercase tracking-wider text-slate-400">F3 (-3 dB)</div>
-          <div id="kpi-f3" class="text-lg sm:text-xl font-mono font-semibold text-sky-400 tabular-nums mt-0.5">-- Hz</div>
-          <div id="kpi-f10" class="text-[11px] font-mono text-slate-400 tabular-nums">F10: -- Hz</div>
+        <div class="field">
+          <label><span id="lbl-dd">Piston Dia Dd (cm)</span></label>
+          <input type="number" id="dd" value="21.0" step="0.1" oninput="onParamInput('dd')" />
         </div>
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
-          <div id="kpi-align-label" class="text-[11px] uppercase tracking-wider text-slate-400">System Qtc / Fb</div>
-          <div id="kpi-align-val" class="text-lg sm:text-xl font-mono font-semibold text-white tabular-nums mt-0.5">--</div>
-          <div id="kpi-align-sub" class="text-[11px] font-mono text-slate-400 tabular-nums">--</div>
+        <div class="field">
+          <label><span id="lbl-sd">Sd (cm²)</span> <span class="tag-auto" id="tag-sd"></span></label>
+          <input type="number" id="sd" value="346.4" step="0.5" oninput="onParamInput('sd')" />
         </div>
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
-          <div class="text-[11px] uppercase tracking-wider text-slate-400">Peak SPL @ Pin</div>
-          <div id="kpi-spl" class="text-lg sm:text-xl font-mono font-semibold text-emerald-400 tabular-nums mt-0.5">-- dB</div>
-          <div id="kpi-sens" class="text-[11px] font-mono text-slate-400 tabular-nums">Ref: -- dB (2.83V)</div>
+
+        <div class="field">
+          <label><span id="lbl-vas">Vas (Liters)</span> <span class="tag-auto" id="tag-vas"></span></label>
+          <input type="number" id="vas" value="35.0" step="0.5" oninput="onParamInput('vas')" />
         </div>
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
-          <div class="text-[11px] uppercase tracking-wider text-slate-400">Peak Excursion</div>
-          <div id="kpi-xmax" class="text-lg sm:text-xl font-mono font-semibold text-white tabular-nums mt-0.5">-- mm</div>
-          <div id="kpi-xmax-sub" class="text-[11px] font-mono text-slate-400 tabular-nums">Limit: -- mm</div>
+        <div class="field">
+          <label>Bl (T·m) <span class="tag-auto" id="tag-bl"></span></label>
+          <input type="number" id="bl" value="12.6" step="0.1" oninput="onParamInput('bl')" />
         </div>
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
-          <div class="text-[11px] uppercase tracking-wider text-slate-400">Port Length</div>
-          <div id="kpi-port-len" class="text-lg sm:text-xl font-mono font-semibold text-white tabular-nums mt-0.5">N/A</div>
-          <div id="kpi-port-res" class="text-[11px] font-mono text-slate-400 tabular-nums">1st Pipe: --</div>
-        </div>
-        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
-          <div class="text-[11px] uppercase tracking-wider text-slate-400">Peak Port Velocity</div>
-          <div id="kpi-port-vel" class="text-lg sm:text-xl font-mono font-semibold text-white tabular-nums mt-0.5">N/A</div>
-          <div id="kpi-port-mach" class="text-[11px] font-mono text-slate-400 tabular-nums">--</div>
+
+        <div class="field full">
+          <label><span id="lbl-xmax">Xmax (mm)</span></label>
+          <input type="number" id="xmax" value="14" step="0.5" oninput="onParamInput('xmax')" />
         </div>
       </div>
+    </details>
 
-      <!-- Modeler Workspace: Left Controls + Right Charts -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-
-        <!-- Left Control Sidebar -->
-        <aside class="lg:col-span-4 space-y-4">
-
-          <!-- 1. Driver Selection & Array -->
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-            <div class="flex items-center justify-between">
-              <h2 class="text-xs font-semibold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-sky-400"></span>
-                Active Transducer (A)
-              </h2>
-              <button id="btn-toggle-ts-sandbox" type="button" class="text-xs px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 transition flex items-center gap-1">
-                <i data-lucide="sliders-horizontal" class="w-3 h-3"></i>
-                <span>Modify T/S</span>
-              </button>
-            </div>
-
-            <select id="mod-driver-a" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"></select>
-
-            <div class="grid grid-cols-3 gap-2">
-              <div>
-                <label class="block text-[11px] text-slate-400 mb-1">Qty</label>
-                <select id="mod-qty" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-200">
-                  <option value="1">1 Driver</option>
-                  <option value="2">2 Drivers</option>
-                  <option value="4">4 Drivers</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-[11px] text-slate-400 mb-1">Wiring</label>
-                <select id="mod-wiring" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-200">
-                  <option value="parallel">Parallel</option>
-                  <option value="series">Series</option>
-                </select>
-              </div>
-              <div class="flex flex-col justify-end">
-                <label class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 cursor-pointer select-none">
-                  <input id="mod-isobaric" type="checkbox" class="rounded bg-slate-900 border-slate-700 text-sky-500" />
-                  <span>Isobaric</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Live T/S Parameter Sandbox (Collapsible) -->
-            <div id="ts-sandbox-panel" class="hidden pt-3 border-t border-slate-800 space-y-2.5">
-              <div class="flex items-center justify-between">
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-amber-300">Live T/S Parameter Override</span>
-                <div class="flex items-center gap-1.5">
-                  <button id="btn-ts-revert" type="button" class="text-[11px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">Revert</button>
-                  <button id="btn-ts-save-as" type="button" class="text-[11px] px-2 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30">Save to DB</button>
-                </div>
-              </div>
-              <div class="grid grid-cols-3 gap-2 text-xs">
-                <div>
-                  <label class="block text-[10px] text-slate-400">Fs (Hz)</label>
-                  <input id="ts-fs" type="number" step="0.1" min="5" max="500" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Qes</label>
-                  <input id="ts-qes" type="number" step="0.01" min="0.05" max="3" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Qms</label>
-                  <input id="ts-qms" type="number" step="0.05" min="0.2" max="20" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Qts (auto)</label>
-                  <input id="ts-qts" type="number" step="0.01" min="0.05" max="2.5" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-sky-300" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Vas (L)</label>
-                  <input id="ts-vas" type="number" step="0.5" min="0.5" max="2000" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Xmax (mm)</label>
-                  <input id="ts-xmax" type="number" step="0.1" min="0.5" max="60" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Re (Ω)</label>
-                  <input id="ts-re" type="number" step="0.1" min="0.5" max="32" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Le (mH)</label>
-                  <input id="ts-le" type="number" step="0.05" min="0" max="20" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Sd (cm²)</label>
-                  <input id="ts-sd" type="number" step="1" min="5" max="3000" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Bl (T·m)</label>
-                  <input id="ts-bl" type="number" step="0.1" min="0.5" max="60" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Mms (g)</label>
-                  <input id="ts-mms" type="number" step="0.5" min="1" max="1500" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">Pe (W)</label>
-                  <input id="ts-pe" type="number" step="10" min="5" max="5000" class="ts-input w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 font-mono text-white" />
-                </div>
-              </div>
-              <p class="text-[11px] text-slate-400">Changes update all acoustic curves live. Click <strong>Save to DB</strong> to store as a new driver or overwrite.</p>
-            </div>
+    <!-- 2. ENCLOSURE GEOMETRY SECTION -->
+    <details open>
+      <summary>2. Enclosure Geometry</summary>
+      <div class="section-body">
+        <div class="auto-bar">
+          <span style="color:var(--muted);">Enclosure Units</span>
+          <div class="unit-switch compact" role="group" aria-label="Enclosure Unit System">
+            <button type="button" data-unit-btn="metric" class="active" onclick="setUnits('metric')">Metric (L / cm)</button>
+            <button type="button" data-unit-btn="imperial" onclick="setUnits('imperial')">Standard (ft³ / in)</button>
           </div>
+        </div>
 
-          <!-- 2. Enclosure Topology & Volume/Tuning -->
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3.5">
-            <div class="flex items-center justify-between">
-              <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Enclosure Geometry</h2>
-              <button id="btn-unit-toggle" type="button" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">Units: Metric (L / cm)</button>
-            </div>
+        <div class="field full">
+          <label>Alignment Type</label>
+          <select id="boxType" onchange="update()">
+            <option value="sealed">Sealed (Acoustic Suspension)</option>
+            <option value="ported" selected>Ported (Bass Reflex)</option>
+          </select>
+        </div>
 
-            <!-- Topology Tabs -->
-            <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
-              <button type="button" data-topo="sealed" class="topo-btn py-1.5 rounded-md text-xs font-medium transition">Sealed</button>
-              <button type="button" data-topo="vented" class="topo-btn py-1.5 rounded-md text-xs font-medium transition">Vented</button>
-              <button type="button" data-topo="bandpass" class="topo-btn py-1.5 rounded-md text-xs font-medium transition">4th Bandpass</button>
-            </div>
-
-            <!-- Alignment Presets -->
-            <div id="preset-row" class="flex flex-wrap gap-1.5"></div>
-
-            <!-- Volume Vb -->
-            <div>
-              <div class="flex justify-between text-xs mb-1">
-                <label id="lbl-vb" class="text-slate-300 font-medium">Net Volume (Vb)</label>
-                <span id="val-vb-display" class="font-mono text-sky-400 tabular-nums">50.0 L</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <input id="mod-vb-range" type="range" min="2" max="400" step="0.5" value="50" class="flex-1" />
-                <input id="mod-vb-num" type="number" min="1" max="2000" step="0.5" value="50" class="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-xs font-mono text-white text-right" />
-              </div>
-            </div>
-
-            <!-- Bandpass Rear Volume Vr (only for bandpass) -->
-            <div id="ctrl-vr" class="hidden">
-              <div class="flex justify-between text-xs mb-1">
-                <label class="text-slate-300 font-medium">Rear Sealed Vol (Vr)</label>
-                <span id="val-vr-display" class="font-mono text-sky-400 tabular-nums">40.0 L</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <input id="mod-vr-range" type="range" min="2" max="400" step="0.5" value="40" class="flex-1" />
-                <input id="mod-vr-num" type="number" min="1" max="2000" step="0.5" value="40" class="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-xs font-mono text-white text-right" />
-              </div>
-            </div>
-
-            <!-- Tuning Fb (vented + bandpass) -->
-            <div id="ctrl-fb">
-              <div class="flex justify-between text-xs mb-1">
-                <label class="text-slate-300 font-medium">Port Tuning (Fb)</label>
-                <span id="val-fb-display" class="font-mono text-sky-400 tabular-nums">28.0 Hz</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <input id="mod-fb-range" type="range" min="12" max="120" step="0.5" value="28" class="flex-1" />
-                <input id="mod-fb-num" type="number" min="10" max="200" step="0.5" value="28" class="w-20 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-xs font-mono text-white text-right" />
-              </div>
-            </div>
-
-            <!-- Stuffing / Losses -->
-            <div class="grid grid-cols-2 gap-2.5 pt-1">
-              <div>
-                <label class="block text-[11px] text-slate-400 mb-1">Box Losses (Ql)</label>
-                <select id="mod-ql" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-200 font-mono">
-                  <option value="5">5 (Leaky / Light)</option>
-                  <option value="7" selected>7 (Typical MDF)</option>
-                  <option value="12">12 (Well Braced)</option>
-                  <option value="20">20 (Lossless Ideal)</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-[11px] text-slate-400 mb-1">Polyfill Gain (%)</label>
-                <input id="mod-polyfill" type="number" min="0" max="25" step="1" value="0" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-200 font-mono" />
-              </div>
-            </div>
-
-            <!-- Port Geometry (Vented / Bandpass) -->
-            <div id="ctrl-port" class="pt-3 border-t border-slate-800 space-y-2.5">
-              <div class="flex items-center justify-between">
-                <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Port Geometry</span>
-                <select id="mod-port-shape" class="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-xs text-slate-200">
-                  <option value="round">Round Tube</option>
-                  <option value="slot">Rectangular Slot</option>
-                </select>
-              </div>
-
-              <div class="grid grid-cols-3 gap-2 text-xs">
-                <div>
-                  <label class="block text-[10px] text-slate-400">Ports (Np)</label>
-                  <input id="mod-port-qty" type="number" min="1" max="8" step="1" value="1" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div id="port-round-wrap">
-                  <label id="lbl-port-d" class="block text-[10px] text-slate-400">Diameter (cm)</label>
-                  <input id="mod-port-d" type="number" min="1" max="60" step="0.5" value="10" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div id="port-slot-w-wrap" class="hidden">
-                  <label id="lbl-port-w" class="block text-[10px] text-slate-400">Width (cm)</label>
-                  <input id="mod-port-w" type="number" min="1" max="100" step="0.5" value="25" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div id="port-slot-h-wrap" class="hidden">
-                  <label id="lbl-port-h" class="block text-[10px] text-slate-400">Height (cm)</label>
-                  <input id="mod-port-h" type="number" min="0.5" max="50" step="0.2" value="3.5" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-white" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-slate-400">End Factor (k)</label>
-                  <select id="mod-port-k" class="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 font-mono text-slate-200">
-                    <option value="0.732">0.732 (1 Flange)</option>
-                    <option value="0.85">0.850 (2 Flanges)</option>
-                    <option value="0.614">0.614 (Free Ends)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
+        <div class="dim-row">
+          <div class="field">
+            <label><span id="lbl-boxW">Int. W (cm)</span></label>
+            <input type="number" id="boxW" placeholder="opt" step="0.5" oninput="calcBoxVolFromDims()" />
           </div>
-
-          <!-- 3. Signal, Filter & Comparison -->
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">Drive, Filter &amp; Compare</h2>
-
-            <div class="grid grid-cols-2 gap-2.5 text-xs">
-              <div>
-                <label class="block text-[11px] text-slate-400 mb-1">Input Power (W)</label>
-                <input id="mod-power" type="number" min="1" max="10000" step="5" value="100" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 font-mono text-white" />
-              </div>
-              <div>
-                <label class="block text-[11px] text-slate-400 mb-1">Series Rg (Ω)</label>
-                <input id="mod-rg" type="number" min="0" max="5" step="0.05" value="0.1" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 font-mono text-white" />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2.5 text-xs">
-              <div>
-                <label class="block text-[11px] text-slate-400 mb-1">Subsonic HPF</label>
-                <select id="mod-hpf-order" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-slate-200">
-                  <option value="0">Off</option>
-                  <option value="2">12 dB/oct (2nd)</option>
-                  <option value="4">24 dB/oct (4th)</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-[11px] text-slate-400 mb-1">HPF Cutoff (Hz)</label>
-                <input id="mod-hpf-freq" type="number" min="10" max="100" step="1" value="20" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 font-mono text-white" />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2.5 text-xs">
-              <div>
-                <label class="block text-[11px] text-slate-400 mb-1">Acoustic Space</label>
-                <select id="mod-space" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-slate-200">
-                  <option value="0">4π Anechoic</option>
-                  <option value="6">2π Half-Space (+6 dB)</option>
-                </select>
-              </div>
-              <div class="flex flex-col justify-end">
-                <button id="btn-save-snapshot" type="button" class="w-full py-1.5 px-2.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 font-medium transition flex items-center justify-center gap-1">
-                  <i data-lucide="bookmark-plus" class="w-3.5 h-3.5"></i>
-                  <span>Pin Snapshot (B)</span>
-                </button>
-              </div>
-            </div>
-
-            <div class="pt-2 border-t border-slate-800">
-              <label class="block text-[11px] font-semibold uppercase tracking-wider text-amber-400 mb-1 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-                Compare Overlay (B)
-              </label>
-              <select id="mod-compare-b" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
-                <option value="none">None (Single Curve)</option>
-              </select>
-            </div>
+          <div class="field">
+            <label><span id="lbl-boxH">Int. H (cm)</span></label>
+            <input type="number" id="boxH" placeholder="opt" step="0.5" oninput="calcBoxVolFromDims()" />
           </div>
-        </aside>
-
-        <!-- Right Charts Grid -->
-        <div class="lg:col-span-8 grid grid-cols-1 xl:grid-cols-2 gap-4">
-
-          <!-- Chart 1: SPL Frequency Response -->
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <div class="flex items-center justify-between mb-2">
-              <div>
-                <h3 class="text-sm font-semibold text-white">Frequency Response (SPL)</h3>
-                <p class="text-[11px] text-slate-400">10 Hz – 1,000 Hz log sweep @ selected power</p>
-              </div>
-              <button id="btn-spl-mode" type="button" class="text-[11px] font-mono px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">Mode: Absolute dB</button>
-            </div>
-            <div class="relative h-72">
-              <canvas id="chart-spl"></canvas>
-            </div>
+          <div class="field">
+            <label><span id="lbl-boxD">Int. D (cm)</span></label>
+            <input type="number" id="boxD" placeholder="opt" step="0.5" oninput="calcBoxVolFromDims()" />
           </div>
+        </div>
 
-          <!-- Chart 2: Cone Excursion -->
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <div class="flex items-center justify-between mb-2">
-              <div>
-                <h3 class="text-sm font-semibold text-white">Cone Excursion vs. Xmax</h3>
-                <p class="text-[11px] text-slate-400">One-way linear displacement (mm)</p>
-              </div>
-              <span id="badge-xmax-status" class="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Within Xmax</span>
-            </div>
-            <div class="relative h-72">
-              <canvas id="chart-excursion"></canvas>
-            </div>
-          </div>
-
-          <!-- Chart 3: Electrical Impedance & Phase -->
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <div class="flex items-center justify-between mb-2">
-              <div>
-                <h3 class="text-sm font-semibold text-white">Electrical Impedance &amp; Phase</h3>
-                <p class="text-[11px] text-slate-400">|Z| (Ω) &amp; electrical phase (°)</p>
-              </div>
-              <span id="badge-zmin" class="text-[11px] font-mono text-slate-400">Zmin: -- Ω</span>
-            </div>
-            <div class="relative h-72">
-              <canvas id="chart-impedance"></canvas>
-            </div>
-          </div>
-
-          <!-- Chart 4: Port Air Velocity / Group Delay -->
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <div class="flex items-center justify-between mb-2">
-              <div>
-                <h3 id="chart4-title" class="text-sm font-semibold text-white">Port Air Velocity</h3>
-                <p id="chart4-sub" class="text-[11px] text-slate-400">m/s (17 m/s quiet, &gt;27 m/s chuffing risk)</p>
-              </div>
-              <div class="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800">
-                <button type="button" data-c4="velocity" class="c4-tab px-2 py-1 rounded text-[11px] font-medium bg-sky-500/20 text-sky-300">Port Vel</button>
-                <button type="button" data-c4="delay" class="c4-tab px-2 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200">Group Delay</button>
-              </div>
-            </div>
-            <div class="relative h-72">
-              <canvas id="chart-extra"></canvas>
-            </div>
-          </div>
-
+        <div class="field">
+          <label><span id="lbl-vb">Net Volume Vb (L)</span></label>
+          <input type="number" id="vb" value="42" step="0.5" oninput="update()" />
+        </div>
+        <div class="field">
+          <label>Stuffing / Damping (Ql)</label>
+          <input type="number" id="ql" value="7" step="0.5" oninput="update()" />
         </div>
       </div>
-    </section>
+    </details>
+
+    <!-- 3. PORT GEOMETRY SECTION -->
+    <details open id="portSection">
+      <summary>3. Port Geometry</summary>
+      <div class="section-body">
+        <div class="auto-bar">
+          <span style="color:var(--muted);">Port Units</span>
+          <div class="unit-switch compact" role="group" aria-label="Port Unit System">
+            <button type="button" data-unit-btn="metric" class="active" onclick="setUnits('metric')">Metric (cm)</button>
+            <button type="button" data-unit-btn="imperial" onclick="setUnits('imperial')">Standard (in)</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Port Shape</label>
+          <select id="portShape" onchange="update()">
+            <option value="slot" selected>Slot / Rectangular</option>
+            <option value="round">Round Tube</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Number of Ports</label>
+          <input type="number" id="numPorts" value="1" min="1" max="16" step="1" oninput="update()" />
+        </div>
+
+        <!-- Slot / Rectangular Port Width & Height -->
+        <div class="field" id="slotWidthField">
+          <label><span id="lbl-portWidth">Port Width (cm)</span></label>
+          <input type="number" id="portWidth" value="3.5" step="0.2" oninput="update()" />
+        </div>
+        <div class="field" id="slotHeightField">
+          <label><span id="lbl-portHeight">Port Height (cm)</span></label>
+          <input type="number" id="portHeight" value="25.0" step="0.5" oninput="update()" />
+        </div>
+
+        <!-- Round Port Diameter -->
+        <div class="field full" id="roundPortFields" style="display:none;">
+          <label><span id="lbl-portDia">Port Diameter (cm)</span></label>
+          <input type="number" id="portDia" value="10.0" step="0.5" oninput="update()" />
+        </div>
+
+        <div class="field">
+          <label>Tuning Freq Fb (Hz)</label>
+          <input type="number" id="fb" value="34" step="0.5" oninput="update()" />
+        </div>
+        <div class="field">
+          <label>End Correction (k)</label>
+          <select id="endCorr" onchange="update()">
+            <option value="0.850" selected>Slot on Wall / 2 Flange (0.85)</option>
+            <option value="0.732">1 End Flanged (0.732)</option>
+            <option value="0.614">Unflanged Pipe (0.614)</option>
+          </select>
+        </div>
+
+        <!-- Computed Port Outputs -->
+        <div class="field">
+          <label><span id="lbl-portArea">Total Port Area (cm²)</span></label>
+          <input type="text" id="portArea" readonly />
+        </div>
+        <div class="field">
+          <label><span id="lbl-portVel">Peak Air Speed (m/s)</span></label>
+          <input type="text" id="portVel" readonly />
+        </div>
+
+        <div class="field full">
+          <label><span id="lbl-portLen">Length per Port (cm)</span></label>
+          <input type="text" id="portLen" readonly />
+        </div>
+      </div>
+    </details>
+
+    <!-- 4. DRIVE & FILTER SECTION -->
+    <details>
+      <summary>4. Drive & Cabin Filter</summary>
+      <div class="section-body">
+        <div class="field">
+          <label>Input Power (Watts)</label>
+          <input type="number" id="power" value="300" step="10" oninput="update()" />
+        </div>
+        <div class="field">
+          <label>Cabin Gain (+dB/oct below 50Hz)</label>
+          <input type="number" id="cabinGain" value="0" step="1" oninput="update()" />
+        </div>
+      </div>
+    </details>
+  </aside>
+
+  <main class="main-view">
+    <div class="readouts">
+      <div class="card">
+        <div class="title">EBP (Fs / Qes)</div>
+        <div class="val" id="outEbp">—</div>
+      </div>
+      <div class="card">
+        <div class="title">System F3 (-3 dB)</div>
+        <div class="val" id="outF3">—</div>
+      </div>
+      <div class="card">
+        <div class="title">Alpha (Vas / Vb)</div>
+        <div class="val" id="outAlpha">—</div>
+      </div>
+      <div class="card">
+        <div class="title">System Qtc (Sealed)</div>
+        <div class="val" id="outQtc">—</div>
+      </div>
+    </div>
+
+    <div class="chart-box">
+      <div class="legend">
+        <span><i class="dot" style="background:var(--accent)"></i>Active Magnitude (dB)</span>
+        <span><i class="dot" style="background:var(--compare)"></i>Pinned Baseline (dB)</span>
+      </div>
+      <canvas id="respChart"></canvas>
+    </div>
   </main>
-
-  <!-- ==================== MODAL: ADD / EDIT DRIVER ==================== -->
-  <div id="modal-driver" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl">
-      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-        <h3 id="modal-driver-title" class="text-base font-semibold text-white">Add Speaker Driver</h3>
-        <button id="btn-close-driver-modal" type="button" class="text-slate-400 hover:text-white p-1">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-      <form id="form-driver" class="p-5 overflow-y-auto space-y-4">
-        <input type="hidden" id="drv-id" />
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Brand *</label>
-            <input id="drv-brand" type="text" required placeholder="e.g. Dayton Audio" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
-          </div>
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Model *</label>
-            <input id="drv-model" type="text" required placeholder="e.g. RSS315HF-4" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white" />
-          </div>
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Category</label>
-            <select id="drv-category" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
-              <option value="Subwoofer">Subwoofer</option>
-              <option value="Woofer">Woofer</option>
-              <option value="Midwoofer">Midwoofer</option>
-              <option value="Pro Audio">Pro Audio</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Diameter (in)</label>
-            <input id="drv-diam" type="number" step="0.1" required value="12" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-          </div>
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Nominal Z (Ω)</label>
-            <input id="drv-z" type="number" step="1" required value="4" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-          </div>
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Power Pe (W)</label>
-            <input id="drv-pe" type="number" step="1" required value="400" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-          </div>
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Sens (dB 2.83V)</label>
-            <input id="drv-sens" type="number" step="0.1" required value="90.0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-          </div>
-        </div>
-
-        <div class="pt-2 border-t border-slate-800">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-semibold uppercase tracking-wider text-sky-400">Thiele-Small Parameters</span>
-            <button id="btn-calc-qts" type="button" class="text-[11px] text-sky-300 hover:underline">Auto-calc Qts from Qms &amp; Qes</button>
-          </div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Fs (Hz) *</label>
-              <input id="drv-fs" type="number" step="0.1" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Qms *</label>
-              <input id="drv-qms" type="number" step="0.01" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Qes *</label>
-              <input id="drv-qes" type="number" step="0.01" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Qts *</label>
-              <input id="drv-qts" type="number" step="0.01" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Vas (Liters) *</label>
-              <input id="drv-vas" type="number" step="0.1" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Re (Ω) *</label>
-              <input id="drv-re" type="number" step="0.1" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Le (mH)</label>
-              <input id="drv-le" type="number" step="0.01" value="0.5" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Xmax (mm) *</label>
-              <input id="drv-xmax" type="number" step="0.1" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Sd (cm²) *</label>
-              <input id="drv-sd" type="number" step="0.1" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Bl (T·m)</label>
-              <input id="drv-bl" type="number" step="0.01" value="10.0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Mms (g)</label>
-              <input id="drv-mms" type="number" step="0.1" value="50.0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Cms (mm/N)</label>
-              <input id="drv-cms" type="number" step="0.01" value="0.5" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm font-mono text-white" />
-            </div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Datasheet / Reference URL</label>
-            <input id="drv-url" type="url" placeholder="https://..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white" />
-          </div>
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Notes</label>
-            <input id="drv-notes" type="text" placeholder="Cone material, voice coil, application..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white" />
-          </div>
-        </div>
-
-        <div class="pt-3 border-t border-slate-800 flex justify-end gap-2">
-          <button id="btn-cancel-driver" type="button" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium">Cancel</button>
-          <button type="submit" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-sm font-semibold">Save Driver</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ==================== MODAL: CONFIRMATION ==================== -->
-  <div id="modal-confirm" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-      <h3 id="confirm-title" class="text-base font-semibold text-white">Confirm Action</h3>
-      <p id="confirm-msg" class="text-sm text-slate-300">Are you sure?</p>
-      <div class="flex justify-end gap-2">
-        <button id="btn-confirm-cancel" type="button" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm">Cancel</button>
-        <button id="btn-confirm-ok" type="button" class="px-3.5 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-400 text-white text-sm font-semibold">Confirm</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast Notification -->
-  <div id="toast" class="fixed bottom-4 right-4 z-50 hidden items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-sm text-white shadow-xl">
-    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
-    <span id="toast-msg">Saved</span>
-  </div>
-
-  <script>
-    // ==================== GROUNDED DEFAULT DRIVER DATABASE ====================
-    const DEFAULT_DRIVERS = [
-      {
-        id: 'dayton-rss315hf-4',
-        brand: 'Dayton Audio',
-        model: 'RSS315HF-4',
-        category: 'Subwoofer',
-        diamIn: 12,
-        zNom: 4,
-        pe: 400,
-        sens: 90.3,
-        fs: 24.2,
-        qms: 2.83,
-        qes: 0.45,
-        qts: 0.39,
-        vas: 84.1,
-        re: 3.1,
-        le: 0.96,
-        xmax: 14.3,
-        sd: 514.7,
-        bl: 13.99,
-        mms: 188,
-        cms: 0.23,
-        url: 'https://www.parts-express.com/pedocs/specs/295-464-dayton-audio-rss315hf-4-specifications-46174.pdf',
-        notes: '12" Reference HF Subwoofer, anodized aluminum cone, triple shorting ring motor.'
-      },
-      {
-        id: 'dayton-rs180p-8',
-        brand: 'Dayton Audio',
-        model: 'RS180P-8',
-        category: 'Woofer',
-        diamIn: 7,
-        zNom: 8,
-        pe: 60,
-        sens: 89.8,
-        fs: 45.8,
-        qms: 1.49,
-        qes: 0.44,
-        qts: 0.34,
-        vas: 22.0,
-        re: 6.3,
-        le: 0.84,
-        xmax: 6.0,
-        sd: 126.7,
-        bl: 7.16,
-        mms: 12.4,
-        cms: 0.98,
-        url: 'https://www.daytonaudio.com/product/1206/rs180p-8-7-reference-paper-woofer-8-ohm',
-        notes: '7" Reference Paper/Kevlar/glass-fiber cone woofer, 8 ohm.'
-      },
-      {
-        id: 'eminence-kappalite-3015lf',
-        brand: 'Eminence',
-        model: 'Kappalite 3015LF',
-        category: 'Pro Audio',
-        diamIn: 15,
-        zNom: 8,
-        pe: 450,
-        sens: 98.4,
-        fs: 44.0,
-        qms: 8.97,
-        qes: 0.48,
-        qts: 0.46,
-        vas: 150.9,
-        re: 5.5,
-        le: 0.93,
-        xmax: 9.6,
-        sd: 881.1,
-        bl: 17.0,
-        mms: 93.0,
-        cms: 0.14,
-        url: 'https://eminence.com/products/kappalite_3015lf',
-        notes: '15" Neodymium LF driver, 3" edgewound copper VC, pro vented bass.'
-      },
-      {
-        id: 'scanspeak-18w-8531g00',
-        brand: 'Scan-Speak',
-        model: 'Revelator 18W/8531G00',
-        category: 'Midwoofer',
-        diamIn: 7,
-        zNom: 8,
-        pe: 60,
-        sens: 87.0,
-        fs: 28.0,
-        qms: 5.10,
-        qes: 0.39,
-        qts: 0.36,
-        vas: 58.2,
-        re: 5.8,
-        le: 0.35,
-        xmax: 6.5,
-        sd: 150.0,
-        bl: 6.8,
-        mms: 17.5,
-        cms: 1.85,
-        url: 'https://www.hificollective.co.uk/components/scanspeak-18w-8531g00-midwoofer.html',
-        notes: '6.5"/7" Revelator sliced paper cone midwoofer, SD-1 motor.'
-      }
-    ];
-
-    const STORAGE_KEY = 'transducerlab_drivers_v1';
-    const SNAPSHOT_KEY = 'transducerlab_snapshots_v1';
-
-    // ==================== APPLICATION STATE ====================
-    let drivers = [];
-    let snapshots = [];
-    let activeCategory = 'All';
-    let currentView = 'database';
-    let confirmCallback = null;
-
-    // Modeler state
-    const modelState = {
-      driverId: 'dayton-rss315hf-4',
-      tsOverride: null, // null or cloned T/S object when modified live
-      qty: 1,
-      wiring: 'parallel',
-      isobaric: false,
-      topology: 'vented', // 'sealed' | 'vented' | 'bandpass'
-      vbL: 75.0,
-      vrL: 45.0,
-      fb: 26.0,
-      ql: 7,
-      polyfillPct: 0,
-      portShape: 'round', // 'round' | 'slot'
-      portQty: 1,
-      portDcm: 10.0,
-      portWcm: 25.0,
-      portHcm: 3.5,
-      portK: 0.732,
-      powerW: 100,
-      rg: 0.1,
-      hpfOrder: 0,
-      hpfFreq: 20,
-      spaceGainDb: 0,
-      splAbsolute: true,
-      chart4Mode: 'velocity', // 'velocity' | 'delay'
-      compareId: 'none',
-      units: 'metric' // 'metric' | 'imperial'
-    };
-
-    // ==================== STORAGE HELPERS ====================
-    function loadDrivers() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch (e) {}
-      return JSON.parse(JSON.stringify(DEFAULT_DRIVERS));
-    }
-
-    function saveDrivers() {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(drivers)); } catch (e) {}
-    }
-
-    function loadSnapshots() {
-      try {
-        const raw = localStorage.getItem(SNAPSHOT_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) return parsed;
-        }
-      } catch (e) {}
-      return [];
-    }
-
-    function saveSnapshots() {
-      try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshots)); } catch (e) {}
-    }
-
-    // ==================== UI HELPERS ====================
-    let toastTimer = null;
-    function showToast(msg) {
-      const el = document.getElementById('toast');
-      document.getElementById('toast-msg').textContent = msg;
-      el.classList.remove('hidden');
-      el.classList.add('flex');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => {
-        el.classList.add('hidden');
-        el.classList.remove('flex');
-      }, 2800);
-    }
-
-    function openConfirm(title, msg, onOk) {
-      document.getElementById('confirm-title').textContent = title;
-      document.getElementById('confirm-msg').textContent = msg;
-      confirmCallback = onOk;
-      const modal = document.getElementById('modal-confirm');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-    }
-
-    function closeConfirm() {
-      const modal = document.getElementById('modal-confirm');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-      confirmCallback = null;
-    }
-
-    // ==================== COMPLEX NUMBER MATH ====================
-    const C = {
-      add: (a, b) => [a[0] + b[0], a[1] + b[1]],
-      sub: (a, b) => [a[0] - b[0], a[1] - b[1]],
-      mul: (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]],
-      div: (a, b) => {
-        const d = b[0] * b[0] + b[1] * b[1] || 1e-18;
-        return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d];
-      },
-      abs: (a) => Math.hypot(a[0], a[1]),
-      arg: (a) => Math.atan2(a[1], a[0])
-    };
-
-    // ==================== ACOUSTIC PHYSICS ENGINE ====================
-    const SPEED_OF_SOUND = 344.0; // m/s at 20°C
-    const RHO_AIR = 1.204; // kg/m^3
-
-    function getDriverDerived(d) {
-      const ebp = d.qes > 0 ? d.fs / d.qes : 0;
-      const vdCc = (d.sd * d.xmax) / 10; // cm^2 * mm / 10 = cm^3
-      const vasM3 = d.vas / 1000;
-      const eta0 = (4 * Math.PI * Math.PI / Math.pow(SPEED_OF_SOUND, 3)) * (Math.pow(d.fs, 3) * vasM3 / Math.max(d.qes, 0.01));
-      const spl1wCalc = 112.1 + 10 * Math.log10(Math.max(eta0, 1e-12));
-      let alignHint = 'Sealed / Vented';
-      let badgeCls = 'bg-sky-500/10 text-sky-300 border-sky-500/20';
-      if (ebp < 50) { alignHint = 'Sealed Preferred'; badgeCls = 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20'; }
-      else if (ebp > 90) { alignHint = 'Vented Preferred'; badgeCls = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'; }
-      return { ebp, vdCc, eta0: eta0 * 100, spl1wCalc, alignHint, badgeCls };
-    }
-
-    function buildEffectiveDriver(baseDriver, tsOverride, qty, wiring, isobaric) {
-      const d = tsOverride ? { ...baseDriver, ...tsOverride } : { ...baseDriver };
-      const n = Math.max(1, Number(qty) || 1);
-      const iso = isobaric && n >= 2;
-      const radiatingN = iso ? n / 2 : n;
-
-      // Electrical scaling
-      let reEff = d.re;
-      let leEff = d.le;
-      if (wiring === 'parallel') {
-        reEff = d.re / n;
-        leEff = d.le / n;
-      } else {
-        reEff = d.re * n;
-        leEff = d.le * n;
-      }
-
-      // Acoustic scaling
-      const vasEff = iso ? (d.vas / 2) * (n / 2) : d.vas * n;
-      const sdEff = d.sd * radiatingN;
-      const mmsEff = iso ? d.mms * 2 : d.mms; // per radiating diaphragm
-      const blEff = (wiring === 'parallel') ? d.bl : d.bl * n;
-      const peEff = d.pe * n;
-
-      // Reference efficiency from Thiele-Small
-      const vasM3 = vasEff / 1000;
-      const eta0 = (4 * Math.PI * Math.PI / Math.pow(SPEED_OF_SOUND, 3)) * (Math.pow(d.fs, 3) * vasM3 / Math.max(d.qes, 0.01));
-      const spl1w = 112.1 + 10 * Math.log10(Math.max(eta0, 1e-12));
-      const spl283v = spl1w + 10 * Math.log10(8.0 / Math.max(reEff, 0.1));
-
-      return {
-        ...d,
-        n,
-        radiatingN,
-        iso,
-        reEff,
-        leEffH: leEff / 1000,
-        vasEff,
-        sdEffM2: sdEff / 10000,
-        mmsEffKg: mmsEff / 1000,
-        blEff,
-        peEff,
-        spl1w,
-        spl283v
-      };
-    }
-
-    function buildFrequencyGrid() {
-      const freqs = [];
-      const points = 160;
-      const fMin = 10;
-      const fMax = 1000;
-      for (let i = 0; i <= points; i++) {
-        freqs.push(fMin * Math.pow(fMax / fMin, i / points));
-      }
-      return freqs;
-    }
-
-    const FREQS = buildFrequencyGrid();
-
-    function computeSimulation(cfg, driverObj) {
-      const eff = buildEffectiveDriver(driverObj, cfg.tsOverride, cfg.qty, cfg.wiring, cfg.isobaric);
-      const rg = Math.max(0, Number(cfg.rg) || 0);
-      const qesEff = eff.qes * (eff.reEff + rg) / Math.max(eff.reEff, 0.1);
-      const qtsEff = (eff.qms * qesEff) / (eff.qms + qesEff);
-
-      const polyMult = 1 + (Math.max(0, Number(cfg.polyfillPct) || 0) / 100);
-      const vbEffL = Math.max(0.5, Number(cfg.vbL) || 10) * polyMult;
-      const vrEffL = Math.max(0.5, Number(cfg.vrL) || 10) * polyMult;
-      const ql = Math.max(2, Number(cfg.ql) || 7);
-      const fb = Math.max(8, Number(cfg.fb) || 28);
-      const pin = Math.max(0.1, Number(cfg.powerW) || 100);
-      const vRms = Math.sqrt(pin * eff.reEff);
-
-      // Port geometry
-      let portAreaM2 = 0;
-      let portDeqM = 0;
-      if (cfg.portShape === 'round') {
-        const dM = Math.max(0.01, (Number(cfg.portDcm) || 10) / 100);
-        portAreaM2 = Math.PI * (dM / 2) * (dM / 2) * Math.max(1, Number(cfg.portQty) || 1);
-        portDeqM = dM;
-      } else {
-        const wM = Math.max(0.01, (Number(cfg.portWcm) || 20) / 100);
-        const hM = Math.max(0.005, (Number(cfg.portHcm) || 3) / 100);
-        portAreaM2 = wM * hM * Math.max(1, Number(cfg.portQty) || 1);
-        portDeqM = 2 * Math.sqrt((wM * hM) / Math.PI);
-      }
-      const vbM3 = vbEffL / 1000;
-      const kEnd = Number(cfg.portK) || 0.732;
-      const portLenM = (cfg.topology === 'vented' || cfg.topology === 'bandpass')
-        ? Math.max(0.005, (SPEED_OF_SOUND * SPEED_OF_SOUND * portAreaM2) / (4 * Math.PI * Math.PI * fb * fb * vbM3) - kEnd * portDeqM)
-        : 0;
-      const portPipeResHz = portLenM > 0 ? SPEED_OF_SOUND / (2 * (portLenM + kEnd * portDeqM)) : 0;
-
-      // Free-air DC displacement per radiating driver at V_rms
-      const kmsFree = eff.mmsEffKg * Math.pow(2 * Math.PI * eff.fs, 2);
-      const xFreeDcM = (eff.blEff * vRms) / ((eff.reEff + rg) * kmsFree * (eff.wiring === 'series' ? eff.n : 1));
-      const resOhm = eff.reEff * (eff.qms / qesEff);
-
-      const splCurve = [];
-      const relDbCurve = [];
-      const excCurve = [];
-      const impMagCurve = [];
-      const impPhaseCurve = [];
-      const portVelCurve = [];
-      const phaseRadArr = [];
-
-      const passbandSpl = eff.spl1w + 10 * Math.log10(pin) + (Number(cfg.spaceGainDb) || 0);
-
-      let qtc = 0;
-      let fc = eff.fs;
-
-      for (let i = 0; i < FREQS.length; i++) {
-        const f = FREQS[i];
-        const w = 2 * Math.PI * f;
-
-        // Subsonic High-Pass Filter transfer function H_hpf(s)
-        let H_hpf = [1, 0];
-        if (cfg.hpfOrder > 0) {
-          const fhp = Math.max(5, Number(cfg.hpfFreq) || 20);
-          const sh = [0, f / fhp];
-          const sh2 = C.mul(sh, sh);
-          if (cfg.hpfOrder === 2) {
-            // 2nd order Butterworth: s^2 / (s^2 + sqrt(2)*s + 1)
-            const denom = C.add(C.add(sh2, [0, Math.SQRT2 * (f / fhp)]), [1, 0]);
-            H_hpf = C.div(sh2, denom);
-          } else {
-            // 4th order Butterworth: cascade of two 2nd-order sections
-            const d1 = C.add(C.add(sh2, [0, 0.7654 * (f / fhp)]), [1, 0]);
-            const d2 = C.add(C.add(sh2, [0, 1.8478 * (f / fhp)]), [1, 0]);
-            H_hpf = C.mul(C.div(sh2, d1), C.div(sh2, d2));
-          }
-        }
-
-        let H_box = [1, 0];
-        let X_m = 0;
-        let Vp_ms = 0;
-        let Z_tot = [eff.reEff, w * eff.leEffH];
-
-        if (cfg.topology === 'sealed') {
-          const alpha = eff.vasEff / vbEffL;
-          fc = eff.fs * Math.sqrt(1 + alpha);
-          const qec = qesEff * Math.sqrt(1 + alpha);
-          const qmc = eff.qms * Math.sqrt(1 + alpha);
-          qtc = 1 / (1 / qec + 1 / qmc + 1 / ql);
-
-          const s = [0, f / fc];
-          const s2 = C.mul(s, s);
-          const denom = C.add(C.add(s2, [0, (f / fc) / qtc]), [1, 0]);
-          H_box = C.div(s2, denom);
-
-          // Excursion: X(s) = (X_free_dc / (1 + alpha)) / (s^2 + s/Qtc + 1)
-          const xNorm = C.div([1, 0], denom);
-          X_m = (xFreeDcM / (1 + alpha)) * C.abs(xNorm) * C.abs(H_hpf);
-
-          // Motional impedance
-          const zDenom = C.add(C.add(s2, [0, (f / fc) / qmc]), [1, 0]);
-          const zMot = C.div([0, resOhm * (f / fc) / eff.qms], zDenom);
-          Z_tot = C.add(Z_tot, zMot);
-        } else if (cfg.topology === 'vented') {
-          const alpha = eff.vasEff / vbEffL;
-          const h = fb / eff.fs;
-          const s = [0, f / eff.fs];
-          const s2 = C.mul(s, s);
-          const s3 = C.mul(s2, s);
-          const s4 = C.mul(s2, s2);
-
-          const c3 = 1 / qtsEff + h / ql;
-          const c2 = 1 + alpha + h * h + h / (qtsEff * ql);
-          const c1 = (h * h) / qtsEff + h / ql;
-          const c0 = h * h;
-
-          const denom = C.add(
-            C.add(s4, [c3 * s3[0], c3 * s3[1]]),
-            C.add([c2 * s2[0] + c0, c2 * s2[1]], [c1 * s[0], c1 * s[1]])
-          );
-          H_box = C.div(s4, denom);
-
-          // Cone excursion
-          const numX = C.add(C.add(s2, [0, (f / eff.fs) * (h / ql)]), [h * h, 0]);
-          const xNorm = C.div(numX, denom);
-          X_m = xFreeDcM * C.abs(xNorm) * C.abs(H_hpf);
-
-          // Port velocity
-          const portNum = [0, (f / eff.fs) * (h / ql)];
-          const uPortNorm = C.div(C.add([h * h, 0], portNum), denom);
-          const volVel = w * eff.sdEffM2 * xFreeDcM * C.abs(uPortNorm) * C.abs(H_hpf);
-          Vp_ms = volVel / Math.max(portAreaM2, 1e-6);
-
-          // Motional impedance (uses Qms in place of Qts)
-          const m3 = 1 / eff.qms + h / ql;
-          const m2 = 1 + alpha + h * h + h / (eff.qms * ql);
-          const m1 = (h * h) / eff.qms + h / ql;
-          const zDenom = C.add(
-            C.add(s4, [m3 * s3[0], m3 * s3[1]]),
-            C.add([m2 * s2[0] + c0, m2 * s2[1]], [m1 * s[0], m1 * s[1]])
-          );
-          const zNum = C.mul([0, resOhm * (f / eff.fs) / eff.qms], numX);
-          const zMot = C.div(zNum, zDenom);
-          Z_tot = C.add(Z_tot, zMot);
-        } else {
-          // 4th-Order Bandpass
-          const alphaR = eff.vasEff / vrEffL;
-          const alphaF = eff.vasEff / vbEffL;
-          fc = eff.fs * Math.sqrt(1 + alphaR);
-          const h = fb / fc;
-          const qtsBp = qtsEff * Math.sqrt(1 + alphaR);
-          const s = [0, f / fc];
-          const s2 = C.mul(s, s);
-          const s3 = C.mul(s2, s);
-          const s4 = C.mul(s2, s2);
-
-          const c3 = 1 / qtsBp + h / ql;
-          const c2 = 1 + (alphaF / (1 + alphaR)) + h * h + h / (qtsBp * ql);
-          const c1 = (h * h) / qtsBp + h / ql;
-          const c0 = h * h;
-
-          const denom = C.add(
-            C.add(s4, [c3 * s3[0], c3 * s3[1]]),
-            C.add([c2 * s2[0] + c0, c2 * s2[1]], [c1 * s[0], c1 * s[1]])
-          );
-          // Front port radiates bandpass: H_bp = (s^2 * h^2) / denom
-          H_box = C.div([s2[0] * h * h, s2[1] * h * h], denom);
-
-          const numX = C.add(C.add(s2, [0, (f / fc) * (h / ql)]), [h * h, 0]);
-          const xNorm = C.div(numX, denom);
-          X_m = (xFreeDcM / (1 + alphaR)) * C.abs(xNorm) * C.abs(H_hpf);
-
-          const volVel = w * eff.sdEffM2 * (xFreeDcM / (1 + alphaR)) * C.abs(C.div([h * h, 0], denom)) * C.abs(H_hpf);
-          Vp_ms = volVel / Math.max(portAreaM2, 1e-6);
-
-          const qmc = eff.qms * Math.sqrt(1 + alphaR);
-          const m3 = 1 / qmc + h / ql;
-          const m2 = 1 + (alphaF / (1 + alphaR)) + h * h + h / (qmc * ql);
-          const m1 = (h * h) / qmc + h / ql;
-          const zDenom = C.add(
-            C.add(s4, [m3 * s3[0], m3 * s3[1]]),
-            C.add([m2 * s2[0] + c0, m2 * s2[1]], [m1 * s[0], m1 * s[1]])
-          );
-          const zNum = C.mul([0, resOhm * (f / fc) / qmc], numX);
-          Z_tot = C.add(Z_tot, C.div(zNum, zDenom));
-        }
-
-        const H_tot = C.mul(H_box, H_hpf);
-        const magDb = 20 * Math.log10(Math.max(C.abs(H_tot), 1e-6));
-        relDbCurve.push(magDb);
-        splCurve.push(passbandSpl + magDb);
-        excCurve.push(X_m * 1000); // mm
-        impMagCurve.push(C.abs(Z_tot));
-        impPhaseCurve.push((C.arg(Z_tot) * 180) / Math.PI);
-        portVelCurve.push(Vp_ms);
-        phaseRadArr.push(C.arg(H_tot));
-      }
-
-      // Unwrap phase and compute Group Delay (ms)
-      const unwrapped = [phaseRadArr[0]];
-      for (let i = 1; i < phaseRadArr.length; i++) {
-        let diff = phaseRadArr[i] - phaseRadArr[i - 1];
-        while (diff > Math.PI) diff -= 2 * Math.PI;
-        while (diff < -Math.PI) diff += 2 * Math.PI;
-        unwrapped.push(unwrapped[i - 1] + diff);
-      }
-      const groupDelayCurve = [];
-      for (let i = 0; i < FREQS.length; i++) {
-        const i0 = Math.max(0, i - 1);
-        const i1 = Math.min(FREQS.length - 1, i + 1);
-        const dw = 2 * Math.PI * (FREQS[i1] - FREQS[i0]);
-        const gdSec = dw > 0 ? -(unwrapped[i1] - unwrapped[i0]) / dw : 0;
-        groupDelayCurve.push(Math.max(0, Math.min(80, gdSec * 1000)));
-      }
-
-      // Find F3, F10, Peak SPL, Peak Excursion, Peak Port Vel, Zmin
-      const peakRel = Math.max(...relDbCurve);
-      const refLevel = cfg.topology === 'bandpass' ? peakRel : 0;
-      let f3 = null, f10 = null;
-      for (let i = 0; i < FREQS.length; i++) {
-        if (f3 === null && relDbCurve[i] >= refLevel - 3) f3 = FREQS[i];
-        if (f10 === null && relDbCurve[i] >= refLevel - 10) f10 = FREQS[i];
-      }
-
-      return {
-        eff,
-        qtsEff,
-        qtc,
-        fc,
-        vbEffL,
-        portLenCm: portLenM * 100,
-        portPipeResHz,
-        f3,
-        f10,
-        peakSpl: Math.max(...splCurve),
-        peakExc: Math.max(...excCurve),
-        peakPortVel: Math.max(...portVelCurve),
-        zMin: Math.min(...impMagCurve),
-        splCurve,
-        relDbCurve,
-        excCurve,
-        impMagCurve,
-        impPhaseCurve,
-        portVelCurve,
-        groupDelayCurve
-      };
-    }
-
-    // ==================== RENDER DATABASE VIEW ====================
-    function renderDatabase() {
-      const q = document.getElementById('db-search').value.trim().toLowerCase();
-      const sortBy = document.getElementById('db-sort').value;
-
-      let list = drivers.filter(d => {
-        if (activeCategory !== 'All' && d.category !== activeCategory) return false;
-        if (!q) return true;
-        return `${d.brand} ${d.model} ${d.diamIn} ${d.notes || ''}`.toLowerCase().includes(q);
-      });
-
-      list.sort((a, b) => {
-        if (sortBy === 'name') return `${a.brand} ${a.model}`.localeCompare(`${b.brand} ${b.model}`);
-        if (sortBy === 'fs') return a.fs - b.fs;
-        if (sortBy === 'qts') return a.qts - b.qts;
-        if (sortBy === 'vas') return a.vas - b.vas;
-        if (sortBy === 'ebp') return (b.fs / b.qes) - (a.fs / a.qes);
-        if (sortBy === 'sens') return b.sens - a.sens;
-        if (sortBy === 'xmax') return b.xmax - a.xmax;
-        return 0;
-      });
-
-      document.getElementById('db-count-badge').textContent = drivers.length;
-      const grid = document.getElementById('driver-grid');
-
-      if (list.length === 0) {
-        grid.innerHTML = `
-          <div class="col-span-full bg-slate-900 border border-slate-800 rounded-xl p-10 text-center space-y-2">
-            <p class="text-slate-300 font-medium">No matching speaker drivers found.</p>
-            <p class="text-xs text-slate-400">Try clearing your search filter or add a new driver.</p>
-          </div>`;
-        return;
-      }
-
-      grid.innerHTML = list.map(d => {
-        const der = getDriverDerived(d);
-        const linkHtml = d.url
-          ? `<a href="${d.url}" target="_blank" rel="noopener noreferrer" class="text-[11px] text-sky-400 hover:underline inline-flex items-center gap-1">Spec Sheet <i data-lucide="external-link" class="w-3 h-3"></i></a>`
-          : `<span class="text-[11px] text-slate-500">Custom Entry</span>`;
-        return `
-          <article class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-4 flex flex-col justify-between gap-3 transition">
-            <div>
-              <div class="flex items-start justify-between gap-2">
-                <div>
-                  <div class="flex items-center gap-2">
-                    <span class="text-[11px] font-medium uppercase tracking-wider text-slate-400">${d.brand}</span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">${d.diamIn}" · ${d.zNom}Ω</span>
-                  </div>
-                  <h3 class="text-base font-semibold text-white mt-0.5">${d.model}</h3>
-                </div>
-                <span class="text-[10px] px-2 py-0.5 rounded-full border ${der.badgeCls} shrink-0">${der.alignHint}</span>
-              </div>
-
-              <p class="text-xs text-slate-400 mt-1.5 line-clamp-2">${d.notes || 'No notes.'}</p>
-
-              <!-- T/S Mini Grid -->
-              <div class="grid grid-cols-4 gap-2 mt-3 bg-slate-950/70 border border-slate-800/80 rounded-lg p-2.5 text-xs font-mono tabular-nums">
-                <div><span class="block text-[10px] text-slate-500">Fs</span><span class="text-slate-100">${d.fs} Hz</span></div>
-                <div><span class="block text-[10px] text-slate-500">Qts</span><span class="text-slate-100">${d.qts}</span></div>
-                <div><span class="block text-[10px] text-slate-500">Vas</span><span class="text-slate-100">${d.vas} L</span></div>
-                <div><span class="block text-[10px] text-slate-500">Xmax</span><span class="text-slate-100">${d.xmax} mm</span></div>
-                <div><span class="block text-[10px] text-slate-500">Qes / Qms</span><span class="text-slate-300">${d.qes}/${d.qms}</span></div>
-                <div><span class="block text-[10px] text-slate-500">EBP</span><span class="text-sky-300">${der.ebp.toFixed(0)}</span></div>
-                <div><span class="block text-[10px] text-slate-500">Sens</span><span class="text-slate-300">${d.sens} dB</span></div>
-                <div><span class="block text-[10px] text-slate-500">Pe / Re</span><span class="text-slate-300">${d.pe}W / ${d.re}Ω</span></div>
-              </div>
-            </div>
-
-            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
-              ${linkHtml}
-              <div class="flex items-center gap-1.5">
-                <button data-action="model" data-id="${d.id}" class="drv-btn px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-xs font-medium transition">Model</button>
-                <button data-action="edit" data-id="${d.id}" class="drv-btn p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs" title="Edit Driver"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
-                <button data-action="dup" data-id="${d.id}" class="drv-btn p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs" title="Duplicate Driver"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
-                <button data-action="del" data-id="${d.id}" class="drv-btn p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-xs" title="Delete Driver"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
-              </div>
-            </div>
-          </article>
-        `;
-      }).join('');
-
-      lucide.createIcons();
-    }
-
-    // ==================== CHARTS SETUP ====================
-    let chartSpl, chartExc, chartImp, chartExtra;
-
-    function baseChartOptions(yTitle) {
-      return {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { color: '#cbd5e1', boxWidth: 12, font: { size: 11, family: 'Inter' } } },
-          tooltip: {
-            backgroundColor: 'rgba(15, 22, 35, 0.95)',
-            titleColor: '#f8fafc',
-            bodyColor: '#cbd5e1',
-            borderColor: '#334155',
-            borderWidth: 1,
-            callbacks: {
-              title: (items) => `${Number(items[0].label).toFixed(1)} Hz`
-            }
-          }
-        },
-        scales: {
-          x: {
-            type: 'logarithmic',
-            min: 10,
-            max: 1000,
-            grid: { color: 'rgba(51, 65, 85, 0.45)' },
-            ticks: {
-              color: '#94a3b8',
-              font: { size: 10, family: 'JetBrains Mono' },
-              callback: (v) => [10, 20, 30, 50, 100, 200, 500, 1000].includes(v) ? v : ''
-            }
-          },
-          y: {
-            grid: { color: 'rgba(51, 65, 85, 0.45)' },
-            ticks: { color: '#94a3b8', font: { size: 10, family: 'JetBrains Mono' } },
-            title: { display: true, text: yTitle, color: '#64748b', font: { size: 10 } }
-          }
-        }
-      };
-    }
-
-    function initCharts() {
-      const ctxSpl = document.getElementById('chart-spl').getContext('2d');
-      chartSpl = new Chart(ctxSpl, {
-        type: 'line',
-        data: { labels: FREQS, datasets: [] },
-        options: baseChartOptions('dB SPL')
-      });
-
-      const ctxExc = document.getElementById('chart-excursion').getContext('2d');
-      chartExc = new Chart(ctxExc, {
-        type: 'line',
-        data: { labels: FREQS, datasets: [] },
-        options: baseChartOptions('mm (one-way)')
-      });
-
-      const ctxImp = document.getElementById('chart-impedance').getContext('2d');
-      const impOpts = baseChartOptions('Impedance (Ω)');
-      impOpts.scales.y1 = {
-        position: 'right',
-        min: -90,
-        max: 90,
-        grid: { drawOnChartArea: false },
-        ticks: { color: '#64748b', font: { size: 10, family: 'JetBrains Mono' } },
-        title: { display: true, text: 'Phase (°)', color: '#64748b', font: { size: 10 } }
-      };
-      chartImp = new Chart(ctxImp, {
-        type: 'line',
-        data: { labels: FREQS, datasets: [] },
-        options: impOpts
-      });
-
-      const ctxExtra = document.getElementById('chart-extra').getContext('2d');
-      chartExtra = new Chart(ctxExtra, {
-        type: 'line',
-        data: { labels: FREQS, datasets: [] },
-        options: baseChartOptions('Velocity (m/s)')
-      });
-    }
-
-    // ==================== MODELER RENDER & SYNC ====================
-    function populateDriverDropdowns() {
-      const selA = document.getElementById('mod-driver-a');
-      const selB = document.getElementById('mod-compare-b');
-      const prevA = modelState.driverId;
-      const prevB = modelState.compareId;
-
-      selA.innerHTML = drivers.map(d => `<option value="${d.id}">${d.brand} ${d.model} (${d.diamIn}", ${d.zNom}Ω)</option>`).join('');
-      if (drivers.some(d => d.id === prevA)) selA.value = prevA;
-      else if (drivers[0]) { selA.value = drivers[0].id; modelState.driverId = drivers[0].id; }
-
-      let bOpts = `<option value="none">None (Single Curve)</option>`;
-      if (snapshots.length > 0) {
-        bOpts += `<optgroup label="Pinned Box Snapshots">` + snapshots.map(s => `<option value="snap:${s.id}">${s.label}</option>`).join('') + `</optgroup>`;
-      }
-      bOpts += `<optgroup label="Drivers (Same Box)">` + drivers.map(d => `<option value="drv:${d.id}">${d.brand} ${d.model}</option>`).join('') + `</optgroup>`;
-      selB.innerHTML = bOpts;
-      if ([...selB.options].some(o => o.value === prevB)) selB.value = prevB;
-      else modelState.compareId = 'none';
-    }
-
-    function syncTsSandboxInputs() {
-      const base = drivers.find(d => d.id === modelState.driverId) || drivers[0];
-      if (!base) return;
-      const src = modelState.tsOverride ? { ...base, ...modelState.tsOverride } : base;
-      document.getElementById('ts-fs').value = src.fs;
-      document.getElementById('ts-qes').value = src.qes;
-      document.getElementById('ts-qms').value = src.qms;
-      document.getElementById('ts-qts').value = src.qts;
-      document.getElementById('ts-vas').value = src.vas;
-      document.getElementById('ts-xmax').value = src.xmax;
-      document.getElementById('ts-re').value = src.re;
-      document.getElementById('ts-le').value = src.le;
-      document.getElementById('ts-sd').value = src.sd;
-      document.getElementById('ts-bl').value = src.bl;
-      document.getElementById('ts-mms').value = src.mms;
-      document.getElementById('ts-pe').value = src.pe;
-    }
-
-    function renderTopologyUI() {
-      document.querySelectorAll('.topo-btn').forEach(btn => {
-        const active = btn.dataset.topo === modelState.topology;
-        btn.className = `topo-btn py-1.5 rounded-md text-xs font-medium transition ${active ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' : 'text-slate-400 hover:text-slate-200 border border-transparent'}`;
-      });
-
-      const isSealed = modelState.topology === 'sealed';
-      const isBp = modelState.topology === 'bandpass';
-      document.getElementById('ctrl-vr').classList.toggle('hidden', !isBp);
-      document.getElementById('ctrl-fb').classList.toggle('hidden', isSealed);
-      document.getElementById('ctrl-port').classList.toggle('hidden', isSealed);
-      document.getElementById('lbl-vb').textContent = isBp ? 'Front Vented Vol (Vf)' : 'Net Volume (Vb)';
-
-      const isRound = modelState.portShape === 'round';
-      document.getElementById('port-round-wrap').classList.toggle('hidden', !isRound);
-      document.getElementById('port-slot-w-wrap').classList.toggle('hidden', isRound);
-      document.getElementById('port-slot-h-wrap').classList.toggle('hidden', isRound);
-
-      // Alignment presets
-      const presetRow = document.getElementById('preset-row');
-      if (isSealed) {
-        presetRow.innerHTML = [
-          { label: 'Bessel (0.577)', qtc: 0.577 },
-          { label: 'Butterworth (0.707)', qtc: 0.707 },
-          { label: 'Chebyshev (0.85)', qtc: 0.85 },
-          { label: 'Compact (1.0)', qtc: 1.0 }
-        ].map(p => `<button type="button" data-qtc="${p.qtc}" class="preset-sealed px-2 py-1 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-slate-300">${p.label}</button>`).join('');
-      } else if (modelState.topology === 'vented') {
-        presetRow.innerHTML = [
-          { label: 'B4 Flat', type: 'b4' },
-          { label: 'QB3 Compact', type: 'qb3' },
-          { label: 'SBB4 / Boom', type: 'sbb4' },
-          { label: 'EBS Deep', type: 'ebs' }
-        ].map(p => `<button type="button" data-vpreset="${p.type}" class="preset-vented px-2 py-1 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-slate-300">${p.label}</button>`).join('');
-      } else {
-        presetRow.innerHTML = `<span class="text-[11px] text-slate-400">Adjust Rear Sealed (Vr) &amp; Front Vented (Vf, Fb) to shape passband.</span>`;
-      }
-    }
-
-    function updateModeler() {
-      const baseDriver = drivers.find(d => d.id === modelState.driverId) || drivers[0];
-      if (!baseDriver) return;
-
-      const simA = computeSimulation(modelState, baseDriver);
-      let simB = null;
-      let labelB = '';
-      if (modelState.compareId !== 'none') {
-        if (modelState.compareId.startsWith('snap:')) {
-          const snap = snapshots.find(s => s.id === modelState.compareId.slice(5));
-          if (snap) {
-            simB = computeSimulation(snap.cfg, snap.driver);
-            labelB = snap.label;
-          }
-        } else if (modelState.compareId.startsWith('drv:')) {
-          const drvB = drivers.find(d => d.id === modelState.compareId.slice(4));
-          if (drvB) {
-            simB = computeSimulation({ ...modelState, tsOverride: null }, drvB);
-            labelB = `${drvB.brand} ${drvB.model}`;
-          }
-        }
-      }
-
-      // Unit displays
-      const isImp = modelState.units === 'imperial';
-      document.getElementById('val-vb-display').textContent = isImp ? `${(modelState.vbL / 28.3168).toFixed(2)} ft³` : `${modelState.vbL.toFixed(1)} L`;
-      document.getElementById('val-vr-display').textContent = isImp ? `${(modelState.vrL / 28.3168).toFixed(2)} ft³` : `${modelState.vrL.toFixed(1)} L`;
-      document.getElementById('val-fb-display').textContent = `${modelState.fb.toFixed(1)} Hz`;
-
-      // Update KPIs
-      document.getElementById('kpi-f3').textContent = simA.f3 ? `${simA.f3.toFixed(1)} Hz` : '-- Hz';
-      document.getElementById('kpi-f10').textContent = `F10: ${simA.f10 ? simA.f10.toFixed(1) + ' Hz' : '--'}`;
-
-      if (modelState.topology === 'sealed') {
-        document.getElementById('kpi-align-label').textContent = 'System Qtc';
-        document.getElementById('kpi-align-val').textContent = simA.qtc.toFixed(3);
-        document.getElementById('kpi-align-sub').textContent = `Fc: ${simA.fc.toFixed(1)} Hz`;
-      } else {
-        document.getElementById('kpi-align-label').textContent = 'Tuning Fb';
-        document.getElementById('kpi-align-val').textContent = `${modelState.fb.toFixed(1)} Hz`;
-        document.getElementById('kpi-align-sub').textContent = `EBP: ${(simA.eff.fs / simA.eff.qes).toFixed(0)} · Qts: ${simA.qtsEff.toFixed(2)}`;
-      }
-
-      document.getElementById('kpi-spl').textContent = `${simA.peakSpl.toFixed(1)} dB`;
-      document.getElementById('kpi-sens').textContent = `Ref: ${simA.eff.spl283v.toFixed(1)} dB (2.83V)`;
-
-      document.getElementById('kpi-xmax').textContent = `${simA.peakExc.toFixed(1)} mm`;
-      document.getElementById('kpi-xmax-sub').textContent = `Limit: ${simA.eff.xmax.toFixed(1)} mm`;
-      const overXmax = simA.peakExc > simA.eff.xmax;
-      document.getElementById('kpi-xmax').className = `text-lg sm:text-xl font-mono font-semibold tabular-nums mt-0.5 ${overXmax ? 'text-rose-400' : 'text-emerald-400'}`;
-      const badgeXmax = document.getElementById('badge-xmax-status');
-      badgeXmax.textContent = overXmax ? `Over Xmax (+${(simA.peakExc - simA.eff.xmax).toFixed(1)} mm)` : 'Within Xmax';
-      badgeXmax.className = `text-[11px] font-mono px-2 py-0.5 rounded border ${overXmax ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`;
-
-      if (modelState.topology === 'sealed') {
-        document.getElementById('kpi-port-len').textContent = 'Sealed';
-        document.getElementById('kpi-port-res').textContent = 'No port';
-        document.getElementById('kpi-port-vel').textContent = '0.0 m/s';
-        document.getElementById('kpi-port-mach').textContent = 'Acoustic suspension';
-      } else {
-        document.getElementById('kpi-port-len').textContent = isImp ? `${(simA.portLenCm / 2.54).toFixed(1)} in` : `${simA.portLenCm.toFixed(1)} cm`;
-        document.getElementById('kpi-port-res').textContent = `1st Pipe: ${simA.portPipeResHz.toFixed(0)} Hz`;
-        document.getElementById('kpi-port-vel').textContent = `${simA.peakPortVel.toFixed(1)} m/s`;
-        const mach = simA.peakPortVel / SPEED_OF_SOUND;
-        document.getElementById('kpi-port-mach').textContent = `Mach ${mach.toFixed(3)} ${simA.peakPortVel > 27 ? '(Chuffing!)' : simA.peakPortVel > 17 ? '(Moderate)' : '(Quiet)'}`;
-        document.getElementById('kpi-port-vel').className = `text-lg sm:text-xl font-mono font-semibold tabular-nums mt-0.5 ${simA.peakPortVel > 27 ? 'text-rose-400' : simA.peakPortVel > 17 ? 'text-amber-400' : 'text-emerald-400'}`;
-      }
-
-      document.getElementById('badge-zmin').textContent = `Zmin: ${simA.zMin.toFixed(1)} Ω`;
-
-      // Update Chart 1: SPL
-      const splA = modelState.splAbsolute ? simA.splCurve : simA.relDbCurve;
-      const splDatasets = [{
-        label: `${baseDriver.model} (A)`,
-        data: splA,
-        borderColor: '#38bdf8',
-        backgroundColor: 'rgba(56, 189, 248, 0.1)',
-        borderWidth: 2.5,
-        pointRadius: 0,
-        tension: 0.2
-      }];
-      if (simB) {
-        splDatasets.push({
-          label: `${labelB} (B)`,
-          data: modelState.splAbsolute ? simB.splCurve : simB.relDbCurve,
-          borderColor: '#f59e0b',
-          borderWidth: 2,
-          borderDash: [5, 4],
-          pointRadius: 0,
-          tension: 0.2
-        });
-      }
-      chartSpl.options.scales.y.title.text = modelState.splAbsolute ? 'dB SPL (1m)' : 'Relative dB';
-      chartSpl.data.datasets = splDatasets;
-      chartSpl.update('none');
-
-      // Update Chart 2: Excursion
-      const excDatasets = [
-        {
-          label: `Excursion (A)`,
-          data: simA.excCurve,
-          borderColor: '#38bdf8',
-          borderWidth: 2.5,
-          pointRadius: 0,
-          tension: 0.2
-        },
-        {
-          label: `Xmax Limit (${simA.eff.xmax} mm)`,
-          data: FREQS.map(() => simA.eff.xmax),
-          borderColor: '#f43f5e',
-          borderWidth: 1.5,
-          borderDash: [6, 4],
-          pointRadius: 0
-        }
-      ];
-      if (simB) {
-        excDatasets.push({
-          label: `Excursion (B)`,
-          data: simB.excCurve,
-          borderColor: '#f59e0b',
-          borderWidth: 2,
-          borderDash: [4, 4],
-          pointRadius: 0,
-          tension: 0.2
-        });
-      }
-      chartExc.data.datasets = excDatasets;
-      chartExc.update('none');
-
-      // Update Chart 3: Impedance & Phase
-      chartImp.data.datasets = [
-        {
-          label: '|Z| Magnitude (Ω)',
-          data: simA.impMagCurve,
-          borderColor: '#38bdf8',
-          borderWidth: 2.5,
-          pointRadius: 0,
-          yAxisID: 'y'
-        },
-        {
-          label: 'Phase (°)',
-          data: simA.impPhaseCurve,
-          borderColor: '#a78bfa',
-          borderWidth: 1.5,
-          borderDash: [4, 3],
-          pointRadius: 0,
-          yAxisID: 'y1'
-        }
-      ];
-      chartImp.update('none');
-
-      // Update Chart 4: Port Velocity or Group Delay
-      if (modelState.chart4Mode === 'velocity') {
-        document.getElementById('chart4-title').textContent = 'Port Air Velocity';
-        document.getElementById('chart4-sub').textContent = 'm/s (17 m/s quiet, >27 m/s chuffing risk)';
-        const velDs = [{
-          label: 'Port Velocity (A)',
-          data: simA.portVelCurve,
-          borderColor: '#34d399',
-          borderWidth: 2.5,
-          pointRadius: 0
-        }];
-        if (modelState.topology !== 'sealed') {
-          velDs.push({
-            label: 'Quiet Limit (17 m/s)',
-            data: FREQS.map(() => 17),
-            borderColor: '#f59e0b',
-            borderWidth: 1.2,
-            borderDash: [5, 4],
-            pointRadius: 0
-          });
-        }
-        if (simB) {
-          velDs.push({
-            label: 'Port Velocity (B)',
-            data: simB.portVelCurve,
-            borderColor: '#f59e0b',
-            borderWidth: 2,
-            pointRadius: 0
-          });
-        }
-        chartExtra.options.scales.y.title.text = 'Velocity (m/s)';
-        chartExtra.data.datasets = velDs;
-      } else {
-        document.getElementById('chart4-title').textContent = 'Group Delay';
-        document.getElementById('chart4-sub').textContent = 'Transient delay τg (ms)';
-        const gdDs = [{
-          label: 'Group Delay (A)',
-          data: simA.groupDelayCurve,
-          borderColor: '#38bdf8',
-          borderWidth: 2.5,
-          pointRadius: 0
-        }];
-        if (simB) {
-          gdDs.push({
-            label: 'Group Delay (B)',
-            data: simB.groupDelayCurve,
-            borderColor: '#f59e0b',
-            borderWidth: 2,
-            borderDash: [4, 4],
-            pointRadius: 0
-          });
-        }
-        chartExtra.options.scales.y.title.text = 'Delay (ms)';
-        chartExtra.data.datasets = gdDs;
-      }
-      chartExtra.update('none');
-    }
-
-    // ==================== EVENT WIRING ====================
-    function switchView(view) {
-      currentView = view;
-      document.getElementById('view-database').classList.toggle('hidden', view !== 'database');
-      document.getElementById('view-modeler').classList.toggle('hidden', view !== 'modeler');
-
-      const tabDb = document.getElementById('tab-database');
-      const tabMod = document.getElementById('tab-modeler');
-      if (view === 'database') {
-        tabDb.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition flex items-center gap-1.5 bg-sky-500/15 text-sky-300 border border-sky-500/30';
-        tabMod.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200 border border-transparent';
-      } else {
-        tabMod.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition flex items-center gap-1.5 bg-sky-500/15 text-sky-300 border border-sky-500/30';
-        tabDb.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition flex items-center gap-1.5 text-slate-400 hover:text-slate-200 border border-transparent';
-        populateDriverDropdowns();
-        syncTsSandboxInputs();
-        renderTopologyUI();
-        updateModeler();
-      }
-    }
-
-    function openDriverModal(driver = null) {
-      document.getElementById('modal-driver-title').textContent = driver ? `Edit ${driver.brand} ${driver.model}` : 'Add Speaker Driver';
-      document.getElementById('drv-id').value = driver ? driver.id : '';
-      document.getElementById('drv-brand').value = driver ? driver.brand : '';
-      document.getElementById('drv-model').value = driver ? driver.model : '';
-      document.getElementById('drv-category').value = driver ? driver.category : 'Subwoofer';
-      document.getElementById('drv-diam').value = driver ? driver.diamIn : 12;
-      document.getElementById('drv-z').value = driver ? driver.zNom : 4;
-      document.getElementById('drv-pe').value = driver ? driver.pe : 300;
-      document.getElementById('drv-sens').value = driver ? driver.sens : 89.0;
-      document.getElementById('drv-fs').value = driver ? driver.fs : 30;
-      document.getElementById('drv-qms').value = driver ? driver.qms : 4.0;
-      document.getElementById('drv-qes').value = driver ? driver.qes : 0.45;
-      document.getElementById('drv-qts').value = driver ? driver.qts : 0.40;
-      document.getElementById('drv-vas').value = driver ? driver.vas : 60;
-      document.getElementById('drv-re').value = driver ? driver.re : 3.2;
-      document.getElementById('drv-le').value = driver ? driver.le : 0.8;
-      document.getElementById('drv-xmax').value = driver ? driver.xmax : 10;
-      document.getElementById('drv-sd').value = driver ? driver.sd : 500;
-      document.getElementById('drv-bl').value = driver ? driver.bl : 12.0;
-      document.getElementById('drv-mms').value = driver ? driver.mms : 120;
-      document.getElementById('drv-cms').value = driver ? driver.cms : 0.25;
-      document.getElementById('drv-url').value = driver ? (driver.url || '') : '';
-      document.getElementById('drv-notes').value = driver ? (driver.notes || '') : '';
-
-      const modal = document.getElementById('modal-driver');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-    }
-
-    function closeDriverModal() {
-      const modal = document.getElementById('modal-driver');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    }
-
-    function applySealedPreset(qtcTarget) {
-      const base = drivers.find(d => d.id === modelState.driverId) || drivers[0];
-      const eff = buildEffectiveDriver(base, modelState.tsOverride, modelState.qty, modelState.wiring, modelState.isobaric);
-      const qtsEff = (eff.qms * eff.qes * (eff.reEff + modelState.rg) / eff.reEff) / (eff.qms + eff.qes * (eff.reEff + modelState.rg) / eff.reEff);
-      const ratio = (qtcTarget / Math.max(qtsEff, 0.05));
-      if (ratio <= 1.02) {
-        showToast(`Driver Qts (${qtsEff.toFixed(2)}) is already >= ${qtcTarget}`);
-        return;
-      }
-      const vb = eff.vasEff / (ratio * ratio - 1);
-      modelState.vbL = Math.max(1, Math.min(2000, Number(vb.toFixed(1))));
-      document.getElementById('mod-vb-range').value = Math.min(400, modelState.vbL);
-      document.getElementById('mod-vb-num').value = modelState.vbL;
-      updateModeler();
-    }
-
-    function applyVentedPreset(type) {
-      const base = drivers.find(d => d.id === modelState.driverId) || drivers[0];
-      const eff = buildEffectiveDriver(base, modelState.tsOverride, modelState.qty, modelState.wiring, modelState.isobaric);
-      const qts = eff.qts;
-      let vb = eff.vasEff;
-      let fb = eff.fs;
-      if (type === 'b4') {
-        vb = eff.vasEff * Math.pow(qts / 0.4, 2.87) * 0.9;
-        fb = eff.fs * Math.pow(0.4 / qts, 0.45);
-      } else if (type === 'qb3') {
-        vb = 15 * Math.pow(qts, 3.3) * eff.vasEff;
-        fb = eff.fs * Math.pow(0.42 / qts, 0.9);
-      } else if (type === 'sbb4') {
-        vb = eff.vasEff * Math.pow(qts / 0.38, 2.6) * 0.65;
-        fb = eff.fs;
-      } else if (type === 'ebs') {
-        vb = eff.vasEff * 1.45;
-        fb = eff.fs * 0.78;
-      }
-      modelState.vbL = Math.max(2, Math.min(2000, Number(vb.toFixed(1))));
-      modelState.fb = Math.max(12, Math.min(120, Number(fb.toFixed(1))));
-      document.getElementById('mod-vb-range').value = Math.min(400, modelState.vbL);
-      document.getElementById('mod-vb-num').value = modelState.vbL;
-      document.getElementById('mod-fb-range').value = modelState.fb;
-      document.getElementById('mod-fb-num').value = modelState.fb;
-      updateModeler();
-    }
-
-    // ==================== INIT ====================
-    window.addEventListener('DOMContentLoaded', () => {
-      drivers = loadDrivers();
-      snapshots = loadSnapshots();
-      initCharts();
-      renderDatabase();
-      lucide.createIcons();
-
-      // Nav tabs
-      document.getElementById('tab-database').addEventListener('click', () => switchView('database'));
-      document.getElementById('tab-modeler').addEventListener('click', () => switchView('modeler'));
-
-      // Database search/sort/filter
-      document.getElementById('db-search').addEventListener('input', renderDatabase);
-      document.getElementById('db-sort').addEventListener('change', renderDatabase);
-      document.getElementById('db-category-pills').addEventListener('click', (e) => {
-        const btn = e.target.closest('.cat-pill');
-        if (!btn) return;
-        activeCategory = btn.dataset.cat;
-        document.querySelectorAll('.cat-pill').forEach(p => {
-          const on = p.dataset.cat === activeCategory;
-          p.className = `cat-pill px-3 py-1 rounded-full text-xs font-medium border ${on ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'}`;
-        });
-        renderDatabase();
-      });
-
-      // Database card actions (event delegation)
-      document.getElementById('driver-grid').addEventListener('click', (e) => {
-        const btn = e.target.closest('.drv-btn');
-        if (!btn) return;
-        const id = btn.dataset.id;
-        const drv = drivers.find(d => d.id === id);
-        if (!drv) return;
-        const act = btn.dataset.action;
-
-        if (act === 'model') {
-          modelState.driverId = id;
-          modelState.tsOverride = null;
-          switchView('modeler');
-        } else if (act === 'edit') {
-          openDriverModal(drv);
-        } else if (act === 'dup') {
-          const copy = { ...drv, id: `${drv.id}-copy-${Date.now()}`, model: `${drv.model} (Copy)` };
-          drivers.unshift(copy);
-          saveDrivers();
-          renderDatabase();
-          showToast(`Duplicated ${drv.model}`);
-        } else if (act === 'del') {
-          if (drivers.length <= 1) {
-            showToast('Keep at least one driver in the database.');
-            return;
-          }
-          openConfirm('Delete Driver', `Remove ${drv.brand} ${drv.model} from your local database?`, () => {
-            drivers = drivers.filter(x => x.id !== id);
-            saveDrivers();
-            renderDatabase();
-            showToast(`Deleted ${drv.model}`);
-          });
-        }
-      });
-
-      // Add/Edit Modal
-      document.getElementById('btn-add-driver').addEventListener('click', () => openDriverModal(null));
-      document.getElementById('btn-close-driver-modal').addEventListener('click', closeDriverModal);
-      document.getElementById('btn-cancel-driver').addEventListener('click', closeDriverModal);
-      document.getElementById('btn-calc-qts').addEventListener('click', () => {
-        const qms = parseFloat(document.getElementById('drv-qms').value);
-        const qes = parseFloat(document.getElementById('drv-qes').value);
-        if (qms > 0 && qes > 0) {
-          document.getElementById('drv-qts').value = ((qms * qes) / (qms + qes)).toFixed(3);
-        }
-      });
-
-      document.getElementById('form-driver').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const existingId = document.getElementById('drv-id').value;
-        const entry = {
-          id: existingId || `drv-${Date.now()}`,
-          brand: document.getElementById('drv-brand').value.trim(),
-          model: document.getElementById('drv-model').value.trim(),
-          category: document.getElementById('drv-category').value,
-          diamIn: parseFloat(document.getElementById('drv-diam').value),
-          zNom: parseFloat(document.getElementById('drv-z').value),
-          pe: parseFloat(document.getElementById('drv-pe').value),
-          sens: parseFloat(document.getElementById('drv-sens').value),
-          fs: parseFloat(document.getElementById('drv-fs').value),
-          qms: parseFloat(document.getElementById('drv-qms').value),
-          qes: parseFloat(document.getElementById('drv-qes').value),
-          qts: parseFloat(document.getElementById('drv-qts').value),
-          vas: parseFloat(document.getElementById('drv-vas').value),
-          re: parseFloat(document.getElementById('drv-re').value),
-          le: parseFloat(document.getElementById('drv-le').value),
-          xmax: parseFloat(document.getElementById('drv-xmax').value),
-          sd: parseFloat(document.getElementById('drv-sd').value),
-          bl: parseFloat(document.getElementById('drv-bl').value),
-          mms: parseFloat(document.getElementById('drv-mms').value),
-          cms: parseFloat(document.getElementById('drv-cms').value),
-          url: document.getElementById('drv-url').value.trim(),
-          notes: document.getElementById('drv-notes').value.trim()
-        };
-        if (existingId) {
-          drivers = drivers.map(d => d.id === existingId ? entry : d);
-          showToast(`Updated ${entry.model}`);
-        } else {
-          drivers.unshift(entry);
-          showToast(`Added ${entry.model}`);
-        }
-        saveDrivers();
-        renderDatabase();
-        closeDriverModal();
-      });
-
-      // Import / Export / Reset
-      document.getElementById('btn-export-json').addEventListener('click', () => {
-        const blob = new Blob([JSON.stringify(drivers, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'transducerlab_drivers.json';
-        a.click();
-        showToast('Exported JSON database');
-      });
-
-      document.getElementById('btn-export-csv').addEventListener('click', () => {
-        const cols = ['brand','model','category','diamIn','zNom','pe','sens','fs','qms','qes','qts','vas','re','le','xmax','sd','bl','mms','cms','url','notes'];
-        const rows = [cols.join(',')].concat(drivers.map(d => cols.map(c => `"${String(d[c] ?? '').replace(/"/g, '""')}"`).join(',')));
-        const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'transducerlab_drivers.csv';
-        a.click();
-        showToast('Exported CSV database');
-      });
-
-      document.getElementById('file-import-json').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const imported = JSON.parse(reader.result);
-            if (!Array.isArray(imported)) throw new Error('Invalid JSON');
-            let added = 0;
-            imported.forEach(item => {
-              if (item.brand && item.model && item.fs && item.vas) {
-                drivers.unshift({ ...item, id: item.id || `imp-${Date.now()}-${added}` });
-                added++;
-              }
-            });
-            saveDrivers();
-            renderDatabase();
-            showToast(`Imported ${added} driver(s)`);
-          } catch (err) {
-            showToast('Failed to parse JSON file');
-          }
-        };
-        reader.readAsText(file);
-        e.target.value = '';
-      });
-
-      document.getElementById('btn-reset-db').addEventListener('click', () => {
-        openConfirm('Reset Database', 'Restore the 4 factory reference drivers? Custom drivers will be removed.', () => {
-          drivers = JSON.parse(JSON.stringify(DEFAULT_DRIVERS));
-          saveDrivers();
-          renderDatabase();
-          showToast('Database reset to defaults');
-        });
-      });
-
-      // Confirm modal buttons
-      document.getElementById('btn-confirm-cancel').addEventListener('click', closeConfirm);
-      document.getElementById('btn-confirm-ok').addEventListener('click', () => {
-        if (confirmCallback) confirmCallback();
-        closeConfirm();
-      });
-
-      // ==================== MODELER CONTROLS ====================
-      document.getElementById('mod-driver-a').addEventListener('change', (e) => {
-        modelState.driverId = e.target.value;
-        modelState.tsOverride = null;
-        syncTsSandboxInputs();
-        updateModeler();
-      });
-
-      document.getElementById('mod-qty').addEventListener('change', (e) => { modelState.qty = Number(e.target.value); updateModeler(); });
-      document.getElementById('mod-wiring').addEventListener('change', (e) => { modelState.wiring = e.target.value; updateModeler(); });
-      document.getElementById('mod-isobaric').addEventListener('change', (e) => { modelState.isobaric = e.target.checked; updateModeler(); });
-
-      // Live T/S Sandbox
-      document.getElementById('btn-toggle-ts-sandbox').addEventListener('click', () => {
-        document.getElementById('ts-sandbox-panel').classList.toggle('hidden');
-      });
-
-      document.querySelectorAll('.ts-input').forEach(inp => {
-        inp.addEventListener('input', () => {
-          const fs = parseFloat(document.getElementById('ts-fs').value);
-          const qes = parseFloat(document.getElementById('ts-qes').value);
-          const qms = parseFloat(document.getElementById('ts-qms').value);
-          let qts = parseFloat(document.getElementById('ts-qts').value);
-          if (inp.id === 'ts-qes' || inp.id === 'ts-qms') {
-            if (qes > 0 && qms > 0) {
-              qts = Number(((qms * qes) / (qms + qes)).toFixed(3));
-              document.getElementById('ts-qts').value = qts;
-            }
-          }
-          modelState.tsOverride = {
-            fs: fs || 30,
-            qes: qes || 0.4,
-            qms: qms || 3.0,
-            qts: qts || 0.35,
-            vas: parseFloat(document.getElementById('ts-vas').value) || 40,
-            xmax: parseFloat(document.getElementById('ts-xmax').value) || 10,
-            re: parseFloat(document.getElementById('ts-re').value) || 4,
-            le: parseFloat(document.getElementById('ts-le').value) || 0.5,
-            sd: parseFloat(document.getElementById('ts-sd').value) || 300,
-            bl: parseFloat(document.getElementById('ts-bl').value) || 10,
-            mms: parseFloat(document.getElementById('ts-mms').value) || 50,
-            pe: parseFloat(document.getElementById('ts-pe').value) || 200
-          };
-          updateModeler();
-        });
-      });
-
-      document.getElementById('btn-ts-revert').addEventListener('click', () => {
-        modelState.tsOverride = null;
-        syncTsSandboxInputs();
-        updateModeler();
-        showToast('Reverted T/S parameters to database values');
-      });
-
-      document.getElementById('btn-ts-save-as').addEventListener('click', () => {
-        const base = drivers.find(d => d.id === modelState.driverId) || drivers[0];
-        if (!base) return;
-        const merged = modelState.tsOverride ? { ...base, ...modelState.tsOverride } : { ...base };
-        merged.id = `mod-${Date.now()}`;
-        merged.model = `${base.model} (Modified)`;
-        drivers.unshift(merged);
-        saveDrivers();
-        modelState.driverId = merged.id;
-        modelState.tsOverride = null;
-        populateDriverDropdowns();
-        renderDatabase();
-        showToast(`Saved ${merged.model} to database`);
-      });
-
-      // Topology & Presets
-      document.querySelectorAll('.topo-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          modelState.topology = btn.dataset.topo;
-          renderTopologyUI();
-          updateModeler();
-        });
-      });
-
-      document.getElementById('preset-row').addEventListener('click', (e) => {
-        const sBtn = e.target.closest('.preset-sealed');
-        if (sBtn) applySealedPreset(parseFloat(sBtn.dataset.qtc));
-        const vBtn = e.target.closest('.preset-vented');
-        if (vBtn) applyVentedPreset(vBtn.dataset.vpreset);
-      });
-
-      // Volume / Tuning sliders & numbers
-      const linkPair = (rangeId, numId, key) => {
-        document.getElementById(rangeId).addEventListener('input', (e) => {
-          modelState[key] = parseFloat(e.target.value) || 1;
-          document.getElementById(numId).value = modelState[key];
-          updateModeler();
-        });
-        document.getElementById(numId).addEventListener('input', (e) => {
-          modelState[key] = Math.max(1, parseFloat(e.target.value) || 1);
-          document.getElementById(rangeId).value = Math.min(parseFloat(document.getElementById(rangeId).max), modelState[key]);
-          updateModeler();
-        });
-      };
-      linkPair('mod-vb-range', 'mod-vb-num', 'vbL');
-      linkPair('mod-vr-range', 'mod-vr-num', 'vrL');
-      linkPair('mod-fb-range', 'mod-fb-num', 'fb');
-
-      document.getElementById('mod-ql').addEventListener('change', (e) => { modelState.ql = Number(e.target.value); updateModeler(); });
-      document.getElementById('mod-polyfill').addEventListener('input', (e) => { modelState.polyfillPct = Number(e.target.value) || 0; updateModeler(); });
-
-      // Port controls
-      document.getElementById('mod-port-shape').addEventListener('change', (e) => {
-        modelState.portShape = e.target.value;
-        renderTopologyUI();
-        updateModeler();
-      });
-      document.getElementById('mod-port-qty').addEventListener('input', (e) => { modelState.portQty = Number(e.target.value) || 1; updateModeler(); });
-      document.getElementById('mod-port-d').addEventListener('input', (e) => { modelState.portDcm = Number(e.target.value) || 1; updateModeler(); });
-      document.getElementById('mod-port-w').addEventListener('input', (e) => { modelState.portWcm = Number(e.target.value) || 1; updateModeler(); });
-      document.getElementById('mod-port-h').addEventListener('input', (e) => { modelState.portHcm = Number(e.target.value) || 1; updateModeler(); });
-      document.getElementById('mod-port-k').addEventListener('change', (e) => { modelState.portK = parseFloat(e.target.value); updateModeler(); });
-
-      // Drive, Filter, Compare
-      document.getElementById('mod-power').addEventListener('input', (e) => { modelState.powerW = Number(e.target.value) || 1; updateModeler(); });
-      document.getElementById('mod-rg').addEventListener('input', (e) => { modelState.rg = Number(e.target.value) || 0; updateModeler(); });
-      document.getElementById('mod-hpf-order').addEventListener('change', (e) => { modelState.hpfOrder = Number(e.target.value); updateModeler(); });
-      document.getElementById('mod-hpf-freq').addEventListener('input', (e) => { modelState.hpfFreq = Number(e.target.value) || 15; updateModeler(); });
-      document.getElementById('mod-space').addEventListener('change', (e) => { modelState.spaceGainDb = Number(e.target.value); updateModeler(); });
-      document.getElementById('mod-compare-b').addEventListener('change', (e) => { modelState.compareId = e.target.value; updateModeler(); });
-
-      document.getElementById('btn-spl-mode').addEventListener('click', (e) => {
-        modelState.splAbsolute = !modelState.splAbsolute;
-        e.target.textContent = `Mode: ${modelState.splAbsolute ? 'Absolute dB' : 'Relative dB'}`;
-        updateModeler();
-      });
-
-      document.querySelectorAll('.c4-tab').forEach(btn => {
-        btn.addEventListener('click', () => {
-          modelState.chart4Mode = btn.dataset.c4;
-          document.querySelectorAll('.c4-tab').forEach(b => {
-            const on = b.dataset.c4 === modelState.chart4Mode;
-            b.className = `c4-tab px-2 py-1 rounded text-[11px] font-medium ${on ? 'bg-sky-500/20 text-sky-300' : 'text-slate-400 hover:text-slate-200'}`;
-          });
-          updateModeler();
-        });
-      });
-
-      document.getElementById('btn-unit-toggle').addEventListener('click', (e) => {
-        modelState.units = modelState.units === 'metric' ? 'imperial' : 'metric';
-        e.target.textContent = `Units: ${modelState.units === 'metric' ? 'Metric (L / cm)' : 'Imperial (ft³ / in)'}`;
-        updateModeler();
-      });
-
-      document.getElementById('btn-save-snapshot').addEventListener('click', () => {
-        const base = drivers.find(d => d.id === modelState.driverId) || drivers[0];
-        if (!base) return;
-        const snapId = `s-${Date.now()}`;
-        const label = `${base.model} · ${modelState.topology} ${modelState.vbL}L${modelState.topology !== 'sealed' ? ' @' + modelState.fb + 'Hz' : ''}`;
-        snapshots.unshift({
-          id: snapId,
-          label,
-          driver: JSON.parse(JSON.stringify(base)),
-          cfg: JSON.parse(JSON.stringify(modelState))
-        });
-        if (snapshots.length > 10) snapshots.pop();
-        saveSnapshots();
-        modelState.compareId = `snap:${snapId}`;
-        populateDriverDropdowns();
-        updateModeler();
-        showToast(`Pinned "${label}" as Compare (B)`);
-      });
-    });
-  </script>
-</body>
-</html>
+</div>
+
+<script>
+  let baselineCurve = null;
+  let currentUnits = "metric"; // "metric" or "imperial"
+
+  // Conversion factors: multiply Metric value by factor to get Standard (Imperial) value
+  const CONV = {
+    mms:        { factor: 0.03527396, mDec: 1, iDec: 2, mLabel: "Mms (grams)",         iLabel: "Mms (oz)" },
+    dd:         { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Piston Dia Dd (cm)",  iLabel: "Piston Dia Dd (in)" },
+    sd:         { factor: 0.15500031, mDec: 1, iDec: 2, mLabel: "Sd (cm²)",            iLabel: "Sd (in²)" },
+    vas:        { factor: 0.03531467, mDec: 2, iDec: 3, mLabel: "Vas (Liters)",        iLabel: "Vas (ft³)" },
+    xmax:       { factor: 0.03937008, mDec: 1, iDec: 2, mLabel: "Xmax (mm)",           iLabel: "Xmax (in)" },
+    boxW:       { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Int. W (cm)",         iLabel: "Int. W (in)" },
+    boxH:       { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Int. H (cm)",         iLabel: "Int. H (in)" },
+    boxD:       { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Int. D (cm)",         iLabel: "Int. D (in)" },
+    vb:         { factor: 0.03531467, mDec: 1, iDec: 2, mLabel: "Net Volume Vb (L)",   iLabel: "Net Volume Vb (ft³)" },
+    portDia:    { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Port Diameter (cm)",  iLabel: "Port Diameter (in)" },
+    portWidth:  { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Port Width (cm)",     iLabel: "Port Width (in)" },
+    portHeight: { factor: 0.39370079, mDec: 1, iDec: 2, mLabel: "Port Height (cm)",    iLabel: "Port Height (in)" }
+  };
+
+  const fields = [
+    "driverName", "fs", "re", "qes", "qms", "qts",
+    "mms", "dd", "sd", "vas", "bl", "xmax",
